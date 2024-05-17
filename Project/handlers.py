@@ -38,3 +38,10 @@ def setup_handlers(bot):
                 bot.send_message(message.chat.id, f"Found games:\n{game_list}")
             else:
                 bot.send_message(message.chat.id, "No games found for this category.")
+#search by name
+            name = find_games_by_name(category, database)
+            name_list = format_game_list(name)
+            if name_list:
+                bot.send_message(message.chat.id, f" {name_list}")
+            else:
+                bot.send_message(message.chat.id, "No games found for this name.")
