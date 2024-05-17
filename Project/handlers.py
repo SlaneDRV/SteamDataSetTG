@@ -35,3 +35,22 @@ def setup_handlers(bot):
             bot.edit_message_text("Found games:\n" + game_list, message.chat.id, search_msg.message_id)
         else:
             bot.edit_message_text("No games found for this category.", message.chat.id, search_msg.message_id)
+
+    #search by name
+    @bot.message_handler(func=lambda message: message.text == "Find by name")
+    def find_by_name(message):
+        msg = bot.send_message(message.chat.id, "Please enter the name of the game you're looking for.")
+        bot.register_next_step_handler(msg, process_name_search)
+
+    def process_name_search(message):
+        search_msg = bot.send_message(message.chat.id, "Searching for games by name '{}'...".format(message.text))
+        database = read_database()
+        if database is None:
+            bot.send_message(message.chat.id, "Failed to connect to JSON database.")
+            return
+        names = find_games_by_name(message.text, database)
+        name_list = format_game_list(names)
+        if name_list:
+            bot.edit_message_text("Found games:\n" + name_list, message.chat.id, search_msg.message_id)
+        else:
+            bot.edit_message_text("No games found for this category.", message.chat.id, search_msg.message_id)
