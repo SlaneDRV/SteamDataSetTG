@@ -4,7 +4,7 @@ from telebot import types
 
 token = '7132632075:AAH14iDGSS9-WKbcZ8N5tYRermCmla5nIdE'
 bot = telebot.TeleBot(token)
-
+#smth by antoshka
 def read_database():
     try:
         with open('games.json', 'r', encoding='utf-8') as f:
