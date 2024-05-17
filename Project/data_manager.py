@@ -13,6 +13,7 @@ def read_database():
         print("Error decoding JSON data.")
         return None
 #search name
+'''
 def find_games_by_name(game_name, database):
     results = []
     # Приводим имя игры к нижнему регистру для регистронезависимого поиска
@@ -22,7 +23,15 @@ def find_games_by_name(game_name, database):
         if search_query in game_data["name"].lower():
             results.append(game_data)
     return results
-
+    '''
+def find_games_by_name(game_name, database):
+    results = []
+    search_query = game_name.lower()
+    for game_id, game_data in database.items():
+        if search_query in game_data["name"].lower():
+            results.append((game_data, game_data["positive"] - game_data["negative"]))
+    results.sort(key=lambda x: x[1], reverse=True)
+    return results
 
 def find_games_by_category(category, database):
     results = []
@@ -42,6 +51,13 @@ def format_game_list(games):
             game_data = item[0]  # Предполагаем, что данные игры находятся в первом элементе кортежа
         else:
             continue  # Пропускаем некорректные данные
-        message += f"{i}. {game_data['name']}\n"
+        total_reviews = game_data["positive"] + game_data["negative"]
+        if total_reviews > 0:
+            positive_percentage = (game_data["positive"] / total_reviews) * 100
+        else:
+            positive_percentage = 0
+        message += (f"{i}. {game_data['name']}\n"
+                    f"Total reviews: {total_reviews}, "
+                    f"Positive: {positive_percentage:.2f}%\n")
     return message
 

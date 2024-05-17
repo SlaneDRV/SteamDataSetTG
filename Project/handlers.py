@@ -52,6 +52,6 @@ def setup_handlers(bot):
         names = find_games_by_name(message.text, database)
         name_list = format_game_list(names)
         if name_list:
-            bot.edit_message_text("Found games:\n" + name_list, message.chat.id, search_msg.message_id)
+            bot.edit_message_text("Found names:\n" + name_list, message.chat.id, search_msg.message_id)
         else:
             bot.edit_message_text("No games found by that name.", message.chat.id, search_msg.message_id)
