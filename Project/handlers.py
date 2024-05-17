@@ -1,5 +1,6 @@
 from telebot import types
-from data_manager import read_database, find_games_by_category, format_game_list
+from data_manager import read_database, find_games_by_category, format_game_list, find_games_by_name
+
 
 def setup_handlers(bot):
     @bot.message_handler(commands=['start'])
@@ -53,4 +54,4 @@ def setup_handlers(bot):
         if name_list:
             bot.edit_message_text("Found games:\n" + name_list, message.chat.id, search_msg.message_id)
         else:
-            bot.edit_message_text("No games found for this category.", message.chat.id, search_msg.message_id)
+            bot.edit_message_text("No games found by that name.", message.chat.id, search_msg.message_id)

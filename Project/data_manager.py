@@ -15,10 +15,14 @@ def read_database():
 #search name
 def find_games_by_name(game_name, database):
     results = []
+    # Приводим имя игры к нижнему регистру для регистронезависимого поиска
+    search_query = game_name.lower()
     for game_id, game_data in database.items():
-        if game_data["name"].lower() == game_name.lower():
+        # Проверяем, содержится ли поисковый запрос в названии игры (также в нижнем регистре)
+        if search_query in game_data["name"].lower():
             results.append(game_data)
     return results
+
 
 def find_games_by_category(category, database):
     results = []
@@ -29,8 +33,15 @@ def find_games_by_category(category, database):
     results.sort(key=lambda x: x[1], reverse=True)
     return results[:20]
 
-def format_game_list(list):
+def format_game_list(games):
     message = ""
-    for i, (game_data, _) in enumerate(list, start=1):
+    for i, item in enumerate(games, start=1):
+        if isinstance(item, dict):  # Если элемент списка - словарь
+            game_data = item
+        elif isinstance(item, tuple) and len(item) > 0:  # Если элемент списка - кортеж
+            game_data = item[0]  # Предполагаем, что данные игры находятся в первом элементе кортежа
+        else:
+            continue  # Пропускаем некорректные данные
         message += f"{i}. {game_data['name']}\n"
     return message
+
