@@ -12,12 +12,13 @@ def read_database():
     except json.JSONDecodeError:
         print("Error decoding JSON data.")
         return None
-
-def find_game_by_name(game_name, database):
+#search name
+def find_games_by_name(game_name, database):
+    results = []
     for game_id, game_data in database.items():
         if game_data["name"].lower() == game_name.lower():
-            return game_data
-    return None
+            results.append(game_data)
+    return results
 
 def find_games_by_category(category, database):
     results = []
@@ -28,8 +29,8 @@ def find_games_by_category(category, database):
     results.sort(key=lambda x: x[1], reverse=True)
     return results[:20]
 
-def format_game_list(games):
+def format_game_list(list):
     message = ""
-    for i, (game_data, _) in enumerate(games, start=1):
+    for i, (game_data, _) in enumerate(list, start=1):
         message += f"{i}. {game_data['name']}\n"
     return message
