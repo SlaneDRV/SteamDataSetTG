@@ -19,11 +19,6 @@ def read_database():
         print("Error decoding JSON data.")
         return None
 
-def find_game_by_name(game_name, database):
-    for game_id, game_data in database.items():
-        if game_data["name"].lower() == game_name.lower():
-            return game_data
-    return None
 
 # proverka identicznosti
 def find_games_by_category(category, database):
@@ -46,6 +41,14 @@ def find_games_by_category(category, database):
     for result in results[:20] :
         final_result.append(result)
     return final_result  # Return only game data
+
+#game name search function
+def find_games_by_name(game_name, database):
+    results = []
+    for game_id, game_data in database.items():
+        if game_data["name"].lower() == game_name.lower():
+            results.append(game_data)
+    return results
 
 def format_game_list(games):
     message = ""
@@ -77,27 +80,44 @@ def find_by_name(message):
 def find_by_category(message):
     bot.send_message(message.chat.id, "Please enter the category of the game you're looking for.")
 
+
+#add a name search
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     if message.text.startswith("/"):
         return
-    if message.text == "Find by name":
-        bot.send_message(message.chat.id, "Please enter the name of the game you're looking for.")
-    elif message.text == "Find by category":
-        bot.send_message(message.chat.id, "Please enter the category of the game you're looking for.")
-    else:
-        database = read_database()
-        if database is None:
-            bot.send_message(message.chat.id, "Failed to connect to JSON database.")
-            return
+
+    database = read_database()
+    if database is None:
+        bot.send_message(message.chat.id, "Failed to connect to JSON database.")
+        return
+
+    if "Find by name" in message.text:
+        return
+
+    if "Find by category" in message.text:
+        return
+
+    # Check if the last message was asking for game name
+    if "Please enter the name of the game you're looking for." in message.json['reply_to_message']['text']:
+        game_name = message.text
+        game = find_game_by_name(game_name, database)
+        if game:
+            bot.send_message(message.chat.id, f"Name: {game['name']}\nRelease Date: {game['release_date']}\nPrice: {game['price']}")
+        else:
+            bot.send_message(message.chat.id, "Game not found.")
+        return
+
+    # Check if the last message was asking for game category
+    if "Please enter the category of the game you're looking for." in message.json['reply_to_message']['text']:
         category = message.text
         games = find_games_by_category(category, database)
-        game_list = format_game_list(games)
-        if game_list:
-            bot.send_message(message.chat.id,f" {game_list}")
+        if games:
+            game_list = "\n".join([f"{i+1}. {game}" for i, game in enumerate(games)])
+            bot.send_message(message.chat.id, game_list)
         else:
             bot.send_message(message.chat.id, "No games found for this category.")
-
+        return
 
 if __name__ == '__main__':
     bot.infinity_polling()
