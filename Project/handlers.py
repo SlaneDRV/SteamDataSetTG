@@ -18,23 +18,20 @@ def setup_handlers(bot):
         markup.add(itembtn1, itembtn2)
         bot.send_message(message.chat.id, "Choose a search option:", reply_markup=markup)
 
-    @bot.message_handler(func=lambda message: True)
-    def handle_message(message):
-        if message.text.startswith("/"):
+    @bot.message_handler(func=lambda message: message.text == "Find by category")
+    def find_by_category(message):
+        msg = bot.send_message(message.chat.id, "Please enter the category of the game you're looking for.")
+        bot.register_next_step_handler(msg, process_category_search)
+
+    def process_category_search(message):
+        search_msg = bot.send_message(message.chat.id, "Searching for games in the category '{}'...".format(message.text))
+        database = read_database()
+        if database is None:
+            bot.send_message(message.chat.id, "Failed to connect to JSON database.")
             return
-        elif message.text == "Find by name":
-            bot.send_message(message.chat.id, "Please enter the name of the game you're looking for.")
-        elif message.text == "Find by category":
-            bot.send_message(message.chat.id, "Please enter the category of the game you're looking for.")
+        games = find_games_by_category(message.text, database)
+        game_list = format_game_list(games)
+        if game_list:
+            bot.edit_message_text("Found games:\n" + game_list, message.chat.id, search_msg.message_id)
         else:
-            database = read_database()
-            if database is None:
-                bot.send_message(message.chat.id, "Failed to connect to JSON database.")
-                return
-            category = message.text
-            games = find_games_by_category(category, database)
-            game_list = format_game_list(games)
-            if game_list:
-                bot.send_message(message.chat.id, f"Found games:\n{game_list}")
-            else:
-                bot.send_message(message.chat.id, "No games found for this category.")
+            bot.edit_message_text("No games found for this category.", message.chat.id, search_msg.message_id)
