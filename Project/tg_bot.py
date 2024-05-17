@@ -25,19 +25,23 @@ def find_game_by_name(game_name, database):
             return game_data
     return None
 
+# proverka identicznosti
 def find_games_by_category(category, database):
     results = []
     final_result = []
+    seen_names = set()  # Множество для отслеживания уникальных названий игр
     for game_id, game_data in database.items():
+        game_name = game_data["name"]
+        if game_name in seen_names:  # Пропустить, если игра уже добавлена в результаты
+            continue
         if isinstance(game_data["tags"], list):
-            # If tags is a list, we need to iterate over each tag and check for category match
             if any(category.lower() in tag.lower() for tag in game_data["tags"]):
-                results.append((game_data, game_data["positive"] - game_data["negative"]))
+                results.append((game_name, game_data["positive"] - game_data["negative"]))
+                seen_names.add(game_name)
         elif isinstance(game_data["tags"], dict):
-            # If tags is a dictionary, we directly check for category match in tag names
             if any(category.lower() in tag.lower() for tag in game_data["tags"].keys()):
-                results.append((game_data, game_data["positive"] - game_data["negative"]))
-    # Sort results by count (positive-negative) and return top 20
+                results.append((game_name, game_data["positive"] - game_data["negative"]))
+                seen_names.add(game_name)
     results.sort(key=lambda x: x[1], reverse=True)  # Sort by score (positive-negative)
     for result in results[:20] :
         final_result.append(result)
