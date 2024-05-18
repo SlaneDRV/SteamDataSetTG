@@ -39,11 +39,19 @@ def find_games_by_name(game_name, database):
 def find_games_by_category(category, database):
     results = []
     for game_id, game_data in database.items():
-        if isinstance(game_data["tags"], list) or isinstance(game_data["tags"], dict):
-            if any(category.lower() in tag.lower() for tag in (game_data["tags"] if isinstance(game_data["tags"], list) else game_data["tags"].keys())):
-                results.append((game_data, game_data["positive"] - game_data["negative"]))
+        # Проверяем, что теги существуют и это словарь
+        if isinstance(game_data.get("tags"), dict):
+            # Сортируем теги по популярности (значениям словаря) и берем первые три
+            sorted_tags = sorted(game_data["tags"].items(), key=lambda x: x[1], reverse=True)[:3]
+            # Преобразуем список кортежей обратно в список тегов
+            top_tags = [tag for tag, popularity in sorted_tags]
+            # Проверяем, содержит ли список топовых тегов искомую категорию
+            if any(category.lower() in tag.lower() for tag in top_tags):
+                total_reviews = game_data["positive"] + game_data["negative"]
+                results.append((game_data, total_reviews))
     results.sort(key=lambda x: x[1], reverse=True)
     return results[:20]
+
 
 def format_game_list(games):
     message = ""
