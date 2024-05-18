@@ -1,4 +1,6 @@
 import json
+from difflib import SequenceMatcher
+
 
 def read_database():
     try:
@@ -12,26 +14,27 @@ def read_database():
     except json.JSONDecodeError:
         print("Error decoding JSON data.")
         return None
-#search name
-'''
+
 def find_games_by_name(game_name, database):
-    results = []
-    # Приводим имя игры к нижнему регистру для регистронезависимого поиска
-    search_query = game_name.lower()
+    results = {}
+    search_query = game_name.lower().replace(" ", "")  # Удаление пробелов для более гибкого сравнения
     for game_id, game_data in database.items():
-        # Проверяем, содержится ли поисковый запрос в названии игры (также в нижнем регистре)
-        if search_query in game_data["name"].lower():
-            results.append(game_data)
-    return results
-    '''
-def find_games_by_name(game_name, database):
-    results = []
-    search_query = game_name.lower()
-    for game_id, game_data in database.items():
-        if search_query in game_data["name"].lower():
-            results.append((game_data, game_data["positive"] - game_data["negative"]))
-    results.sort(key=lambda x: x[1], reverse=True)
-    return results
+        name = game_data["name"].lower().replace(" ", "")
+        # Нечеткое сравнение с использованием SequenceMatcher
+        ratio = SequenceMatcher(None, search_query, name).ratio()
+        if ratio > 0.7:
+            if game_id not in results:  # Добавляем только если игра еще не в списке
+                total_reviews = game_data["positive"] + game_data["negative"]
+                results[game_id] = (game_data, total_reviews)
+        # Точное сравнение с использованием оператора 'in'
+        if search_query in name:
+            if game_id not in results:
+                total_reviews = game_data["positive"] + game_data["negative"]
+                results[game_id] = (game_data, total_reviews)
+
+    # Сортировка результатов по количеству отзывов
+    sorted_results = sorted(results.values(), key=lambda x: x[1], reverse=True)
+    return sorted_results[:10]
 
 def find_games_by_category(category, database):
     results = []
@@ -44,20 +47,12 @@ def find_games_by_category(category, database):
 
 def format_game_list(games):
     message = ""
-    for i, item in enumerate(games, start=1):
-        if isinstance(item, dict):  # Если элемент списка - словарь
-            game_data = item
-        elif isinstance(item, tuple) and len(item) > 0:  # Если элемент списка - кортеж
-            game_data = item[0]  # Предполагаем, что данные игры находятся в первом элементе кортежа
-        else:
-            continue  # Пропускаем некорректные данные
-        total_reviews = game_data["positive"] + game_data["negative"]
+    for i, (game_data, total_reviews) in enumerate(games, start=1):
         if total_reviews > 0:
             positive_percentage = (game_data["positive"] / total_reviews) * 100
         else:
             positive_percentage = 0
-        message += (f"{i}. {game_data['name']}\n"
-                    f"Total reviews: {total_reviews}, "
-                    f"Positive: {positive_percentage:.2f}%\n")
+        message += (f"{i}. {game_data['name']} (Reviews: {total_reviews})\n"
+                    f"\tPositive: {positive_percentage:.2f}%\n")
     return message
 

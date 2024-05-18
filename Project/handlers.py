@@ -5,19 +5,27 @@ from data_manager import read_database, find_games_by_category, format_game_list
 def setup_handlers(bot):
     @bot.message_handler(commands=['start'])
     def send_welcome(message):
-        markup = types.ReplyKeyboardMarkup(row_width=1)
-        itembtn1 = types.KeyboardButton('Show My Wishlist')
-        itembtn2 = types.KeyboardButton('Find a New Game')
+        show_main_menu(message)
+
+    @bot.message_handler(func=lambda message: message.text == "Back")
+    def handle_back(message):
+        show_main_menu(message)
+
+    def show_main_menu(message):
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        itembtn1 = types.KeyboardButton('Find a New Game')
+        itembtn2 = types.KeyboardButton('View Wishlist')
         markup.add(itembtn1, itembtn2)
         bot.send_message(message.chat.id, "Welcome! Choose an option:", reply_markup=markup)
 
     @bot.message_handler(func=lambda message: message.text == "Find a New Game")
     def find_new_game(message):
-        markup = types.ReplyKeyboardMarkup(row_width=2)
+        markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
         itembtn1 = types.KeyboardButton('Find by name')
         itembtn2 = types.KeyboardButton('Find by category')
-        markup.add(itembtn1, itembtn2)
-        bot.send_message(message.chat.id, "Choose a search option:", reply_markup=markup)
+        itembtn_back = types.KeyboardButton('Back')
+        markup.add(itembtn1, itembtn2, itembtn_back)
+        bot.send_message(message.chat.id, "Choose a search option or go back:", reply_markup=markup)
 
     @bot.message_handler(func=lambda message: message.text == "Find by category")
     def find_by_category(message):
