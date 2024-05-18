@@ -1,4 +1,5 @@
 from telebot import types
+import re
 from data_manager import (
     read_database, find_games_by_category, format_game_list, find_games_by_name,
     read_wishlist, add_game_to_wishlist, remove_game_from_wishlist
@@ -73,7 +74,8 @@ def setup_handlers(bot):
             bot.send_message(message.chat.id, "Your wishlist is empty.")
         else:
             for game in wishlist:
-                markup_inline.add(types.InlineKeyboardButton(f"{game['name']} - {game['price']}", callback_data=f"wishlist_{game['name']}"))
+                price = f"{game['price']}$" if game['price'] != 0.0 else 'Free'
+                markup_inline.add(types.InlineKeyboardButton(f"{game['name']} - {price}", callback_data=f"wishlist_{game['name']}"))
 
         markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
         itembtn_view = types.KeyboardButton('View Wishlist')
@@ -95,23 +97,34 @@ def setup_handlers(bot):
                 total_reviews = game['positive'] + game['negative']
                 positive_percentage = (game['positive'] / total_reviews) * 100 if total_reviews > 0 else 0
                 developer = ", ".join(game['developers']).strip("'\"") if isinstance(game['developers'], list) else \
-                    game[
-                        'developers'].strip("'\"")
+                game['developers'].strip("'\"")
                 publisher = ", ".join(game['publishers']).strip("'\"") if isinstance(game['publishers'], list) else \
-                    game[
-                        'publishers'].strip("'\"")
+                game['publishers'].strip("'\"")
+                price = f"${game['price']}" if game['price'] != 0.0 else 'Free'
+
+                # Экранируем специальные символы для HTML
+                def escape_html(text):
+                    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+                name = escape_html(game['name'])
+                short_description = escape_html(game['short_description'])
+                developer = escape_html(developer)
+                publisher = escape_html(publisher)
+                release_date = escape_html(game['release_date'])
+
                 caption = (
-                    f"*{game['name']}*\n\n"
-                    f"_{game['short_description']}_\n\n"
-                    f"*Total reviews:*          {total_reviews:,} _({positive_percentage:.2f}% positive)_\n"
-                    f"*Release date:*            {game['release_date']}\n"
-                    f"*Developer:*                 {developer}\n"
-                    f"*Publisher:*                   {publisher}"
+                    f"<b>{name}</b>\n\n"
+                    f"<i>{short_description}</i>\n\n"
+                    f"<b>Price:</b> {price}\n"
+                    f"<b>Total reviews:</b> {total_reviews:,} ({positive_percentage:.2f}% positive)\n"
+                    f"<b>Release date:</b> {release_date}\n"
+                    f"<b>Developer:</b> {developer}\n"
+                    f"<b>Publisher:</b> {publisher}"
                 )
                 if image_url:
-                    bot.send_photo(call.message.chat.id, image_url, caption=caption, parse_mode='Markdown')
+                    bot.send_photo(call.message.chat.id, image_url, caption=caption, parse_mode='HTML')
                 else:
-                    bot.send_message(call.message.chat.id, caption, parse_mode='Markdown')
+                    bot.send_message(call.message.chat.id, caption, parse_mode='HTML')
                 break
 
     @bot.message_handler(func=lambda message: message.text == "Add Game to Wishlist")
