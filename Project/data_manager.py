@@ -1,4 +1,5 @@
 import json
+import os
 from difflib import SequenceMatcher
 
 
@@ -64,3 +65,36 @@ def format_game_list(games):
                     f"\tPositive: {positive_percentage:.2f}%\n")
     return message
 
+WISHLIST_DIR = 'Wishlists'
+
+if not os.path.exists(WISHLIST_DIR):
+    os.makedirs(WISHLIST_DIR)
+
+def get_wishlist_path(user_id):
+    return os.path.join(WISHLIST_DIR, f'{user_id}_wishlist.json')
+
+def read_wishlist(user_id):
+    filename = get_wishlist_path(user_id)
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return []
+
+def save_wishlist(user_id, wishlist):
+    filename = get_wishlist_path(user_id)
+    with open(filename, 'w', encoding='utf-8') as file:
+        json.dump(wishlist, file, indent=4)  # Форматирование с отступами
+
+def add_game_to_wishlist(user_id, game):
+    wishlist = read_wishlist(user_id)
+    if game not in wishlist:
+        wishlist.append(game)
+        save_wishlist(user_id, wishlist)
+    return wishlist
+
+def remove_game_from_wishlist(user_id, game_name):
+    wishlist = read_wishlist(user_id)
+    new_wishlist = [game for game in wishlist if game['name'] != game_name]
+    save_wishlist(user_id, new_wishlist)
+    return new_wishlist
