@@ -115,11 +115,11 @@ def setup_handlers(bot):
                 caption = (
                     f"<b>{name}</b>\n\n"
                     f"<i>{short_description}</i>\n\n"
-                    f"<b>Price:</b> {price}\n"
-                    f"<b>Total reviews:</b> {total_reviews:,} ({positive_percentage:.2f}% positive)\n"
-                    f"<b>Release date:</b> {release_date}\n"
-                    f"<b>Developer:</b> {developer}\n"
-                    f"<b>Publisher:</b> {publisher}"
+                    f"<b>Total reviews:</b>        {total_reviews:,} ({positive_percentage:.2f}% positive)\n"
+                    f"<b>Release date:</b>           {release_date}\n"
+                    f"<b>Developer:</b>               {developer}\n"
+                    f"<b>Publisher:</b>                 {publisher}\n\n"
+                    f"<b>Price:</b>     {price}"
                 )
                 if image_url:
                     bot.send_photo(call.message.chat.id, image_url, caption=caption, parse_mode='HTML')
