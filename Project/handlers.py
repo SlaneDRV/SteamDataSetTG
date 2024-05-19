@@ -35,39 +35,11 @@ def setup_handlers(bot):
         msg = bot.send_message(message.chat.id, "Please enter the category of the game you're looking for.")
         bot.register_next_step_handler(msg, search_game_by_category)
 
-    """
-    def process_category_search(message):
-        search_msg = bot.send_message(message.chat.id, f"Searching for games in the category '{message.text}'...")
-        database = read_database()
-        if database is None:
-            bot.send_message(message.chat.id, "Failed to connect to JSON database.")
-            return
-        games = find_games_by_category(message.text, database)
-        game_list = format_game_list(games)
-        if game_list:
-            bot.edit_message_text("Found games:\n" + game_list, message.chat.id, search_msg.message_id)
-        else:
-            bot.edit_message_text("No games found for this category.", message.chat.id, search_msg.message_id)
-"""
     @bot.message_handler(func=lambda message: message.text == "Find by name")
     def find_by_name(message):
         msg = bot.send_message(message.chat.id, "Please enter the name of the game you're looking for.")
         bot.register_next_step_handler(msg, search_game_by_name)
 
-    """
-    def process_name_search(message):
-        search_msg = bot.send_message(message.chat.id, f"Searching for games by name '{message.text}'...")
-        database = read_database()
-        if database is None:
-            bot.send_message(message.chat.id, "Failed to connect to JSON database.")
-            return
-        names = find_games_by_name(message.text, database)
-        name_list = format_game_list(names)
-        if name_list:
-            bot.edit_message_text("Found names:\n" + name_list, message.chat.id, search_msg.message_id)
-        else:
-            bot.edit_message_text("No games found by that name.", message.chat.id, search_msg.message_id)
-"""
     @bot.message_handler(func=lambda message: message.text in ["Wishlist", "View Wishlist"])
     def show_wishlist(message):
         wishlist = read_wishlist(message.chat.id)
@@ -93,15 +65,16 @@ def setup_handlers(bot):
     def show_game_details(call):
         game_name = call.data.split('_', 1)[1]
         wishlist = read_wishlist(call.message.chat.id)
+
         for game in wishlist:
             if game['name'] == game_name:
                 image_url = game.get('header_image', None)
                 total_reviews = game['positive'] + game['negative']
                 positive_percentage = (game['positive'] / total_reviews) * 100 if total_reviews > 0 else 0
                 developer = ", ".join(game['developers']).strip("'\"") if isinstance(game['developers'], list) else \
-                game['developers'].strip("'\"")
+                    game['developers'].strip("'\"")
                 publisher = ", ".join(game['publishers']).strip("'\"") if isinstance(game['publishers'], list) else \
-                game['publishers'].strip("'\"")
+                    game['publishers'].strip("'\"")
                 price = f"${game['price']}" if game['price'] != 0.0 else 'Free'
 
                 # Экранируем специальные символы для HTML
@@ -123,51 +96,99 @@ def setup_handlers(bot):
                     f"<b>Publisher:</b>                 {publisher}\n\n"
                     f"<b>Price:</b>     {price}"
                 )
+
                 if image_url:
                     bot.send_photo(call.message.chat.id, image_url, caption=caption, parse_mode='HTML')
                 else:
                     bot.send_message(call.message.chat.id, caption, parse_mode='HTML')
+
+                # Добавляем кнопку "Remove from Wishlist"
+                markup_inline = types.InlineKeyboardMarkup()
+                markup_inline.add(
+                    types.InlineKeyboardButton(f"Remove {game['name']} from Wishlist", callback_data=f"remove_{game['name']}"))
+                bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",
+                                 reply_markup=markup_inline)
                 break
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('list_'))
+    def show_game_details_list(call):
+        game_name = call.data.split('_', 1)[1]
+        database = read_database()
+        games = find_games_by_name(game_name, database)
+
+        if games:
+            game = games[0][0]  # Извлекаем данные игры из кортежа
+            image_url = game.get('header_image', None)
+            total_reviews = game['positive'] + game['negative']
+            positive_percentage = (game['positive'] / total_reviews) * 100 if total_reviews > 0 else 0
+            developer = ", ".join(game['developers']).strip("'\"") if isinstance(game['developers'], list) else \
+                game['developers'].strip("'\"")
+            publisher = ", ".join(game['publishers']).strip("'\"") if isinstance(game['publishers'], list) else \
+                game['publishers'].strip("'\"")
+            price = f"${game['price']}" if game['price'] != 0.0 else 'Free'
+
+            # Экранируем специальные символы для HTML
+            def escape_html(text):
+                return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+            name = escape_html(game['name'])
+            short_description = escape_html(game['short_description'])
+            developer = escape_html(developer)
+            publisher = escape_html(publisher)
+            release_date = escape_html(game['release_date'])
+
+            caption = (
+                f"<b>{name}</b>\n\n"
+                f"<i>{short_description}</i>\n\n"
+                f"<b>Total reviews:</b>        {total_reviews:,} ({positive_percentage:.2f}% positive)\n"
+                f"<b>Release date:</b>           {release_date}\n"
+                f"<b>Developer:</b>               {developer}\n"
+                f"<b>Publisher:</b>                 {publisher}\n\n"
+                f"<b>Price:</b>     {price}"
+            )
+
+            if image_url:
+                bot.send_photo(call.message.chat.id, image_url, caption=caption, parse_mode='HTML')
+            else:
+                bot.send_message(call.message.chat.id, caption, parse_mode='HTML')
+
+            # Добавляем кнопку "Add to Wishlist"
+            markup_inline = types.InlineKeyboardMarkup()
+            markup_inline.add(
+                types.InlineKeyboardButton(f"Add {game['name']} to Wishlist", callback_data=f"add_{game['name']}"))
+            bot.send_message(call.message.chat.id, "Would you like to add this game to your Wishlist?",
+                             reply_markup=markup_inline)
+        else:
+            bot.send_message(call.message.chat.id, f"No details found for the game: {game_name}")
 
     @bot.message_handler(func=lambda message: message.text == "Add Game to Wishlist")
     def prompt_for_game_name(message):
         msg = bot.send_message(message.chat.id, "Please enter the name of the game you want to add:")
         bot.register_next_step_handler(msg, search_game_by_name)
-    """
-    def search_game_by_name_wishlist(message):
-        search_msg = bot.send_message(message.chat.id, f"Searching for games with name '{message.text}'...")
-        games = find_games_by_name(message.text, read_database())[:10]  # Показываем только первые 5 результатов
-        markup = types.InlineKeyboardMarkup()
-        for game, _ in games:  # Извлекаем данные игры из кортежа
-            callback_data = f'add_{game["name"]}'  # Пример: add_Half-Life
-            markup.add(types.InlineKeyboardButton(game["name"], callback_data=callback_data))
-        if games:
-            bot.edit_message_text("Select a game to add to your wishlist:", message.chat.id, search_msg.message_id, reply_markup=markup)
-        else:
-            bot.edit_message_text("No games found with that name.", message.chat.id, search_msg.message_id)
-"""
+
     def search_game_by_name(message):
         search_msg = bot.send_message(message.chat.id, f"Searching for games with name '{message.text}'...")
-        games = find_games_by_name(message.text, read_database())[:10]  # Показываем только первые 5 результатов
+        games = find_games_by_name(message.text, read_database())[:10]  # Показываем только первые 10 результатов
         markup = types.InlineKeyboardMarkup()
         for game, _ in games:  # Извлекаем данные игры из кортежа
-            callback_data = f'add_{game["name"]}'  # Пример: add_Half-Life
+            callback_data = f'list_{game["name"]}'  # Пример: list_Half-Life
             markup.add(types.InlineKeyboardButton(game["name"], callback_data=callback_data))
         if games:
-            bot.edit_message_text("Select a game to add to your wishlist:", message.chat.id, search_msg.message_id, reply_markup=markup)
+            bot.edit_message_text("Select a game:", message.chat.id, search_msg.message_id, reply_markup=markup)
         else:
             bot.edit_message_text("No games found with that name.", message.chat.id, search_msg.message_id)
+
     def search_game_by_category(message):
         search_msg = bot.send_message(message.chat.id, f"Searching for games by category '{message.text}'...")
-        games = find_games_by_category(message.text, read_database())[:10]  # Показываем только первые 5 результатов
+        games = find_games_by_category(message.text, read_database())[:10]  # Показываем только первые 10 результатов
         markup = types.InlineKeyboardMarkup()
         for game, _ in games:  # Извлекаем данные игры из кортежа
-            callback_data = f'add_{game["name"]}'  # Пример: add_Half-Life
+            callback_data = f'list_{game["name"]}'  # Пример: list_Half-Life
             markup.add(types.InlineKeyboardButton(game["name"], callback_data=callback_data))
         if games:
-            bot.edit_message_text("Select a game to add to your wishlist:", message.chat.id, search_msg.message_id, reply_markup=markup)
+            bot.edit_message_text("Select a game:", message.chat.id, search_msg.message_id, reply_markup=markup)
         else:
-            bot.edit_message_text("No games found with that name.", message.chat.id, search_msg.message_id)
+            bot.edit_message_text("No games found with that category.", message.chat.id, search_msg.message_id)
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('add_'))
     def add_game_to_wishlist_callback(call):
