@@ -31,46 +31,54 @@ def read_database():
         print("Connected to JSON database successfully.")
         return DATABASE
 
+
 def find_games_by_name(game_name, database):
     print("Search games by name has been started.")
     results = {}
-    search_query = game_name.lower().replace(" ", "")  # Удаление пробелов для более гибкого сравнения
+    search_query = game_name.lower().replace(" ", "")
     for game_id, game_data in database.items():
         name = game_data["name"].lower().replace(" ", "")
-        # Нечеткое сравнение с использованием SequenceMatcher
         ratio = SequenceMatcher(None, search_query, name).ratio()
-        if ratio > 0.7:
-            if game_id not in results:  # Добавляем только если игра еще не в списке
-                total_reviews = game_data["positive"] + game_data["negative"]
-                results[game_id] = (game_data, total_reviews)
-        # Точное сравнение с использованием оператора 'in'
-        if search_query in name:
-            if game_id not in results:
-                total_reviews = game_data["positive"] + game_data["negative"]
-                results[game_id] = (game_data, total_reviews)
+        if ratio > 0.7 or search_query in name:
+            total_reviews = game_data["positive"] + game_data["negative"]
+            results[game_id] = (game_data, total_reviews)
 
-    # Сортировка результатов по количеству отзывов
-    sorted_results = sorted(results.values(), key=lambda x: x[1], reverse=True)
+    sorted_results = sorted(results.items(), key=lambda x: x[1][1], reverse=True)
     print("Search games by name is done.")
     return sorted_results[:10]
 
 def find_games_by_category(category, database):
     print("Search games by category has been started.")
-    results = []
+    results = {}
     for game_id, game_data in database.items():
-        # Проверяем, что теги существуют и это словарь
         if isinstance(game_data.get("tags"), dict):
-            # Сортируем теги по популярности (значениям словаря) и берем первые три
             sorted_tags = sorted(game_data["tags"].items(), key=lambda x: x[1], reverse=True)[:3]
-            # Преобразуем список кортежей обратно в список тегов
             top_tags = [tag for tag, popularity in sorted_tags]
-            # Проверяем, содержит ли список топовых тегов искомую категорию
             if any(category.lower() in tag.lower() for tag in top_tags):
                 total_reviews = game_data["positive"] + game_data["negative"]
-                results.append((game_data, total_reviews))
-    results.sort(key=lambda x: x[1], reverse=True)
+                results[game_id] = (game_data, total_reviews)
+    sorted_results = sorted(results.items(), key=lambda x: x[1][1], reverse=True)
     print("Search games by category is done.")
-    return results[:20]
+    return sorted_results[:20]
+
+
+#search game for showing details
+def find_game_by_exact_name(game_name, database):
+    print("Search game by exact name has been started.")
+    results = []
+    search_query = game_name.lower().strip()  # Приводим запрос к нижнему регистру и убираем лишние пробелы
+    for game_id, game_data in database.items():
+        name = game_data["name"].lower().strip()  # Приводим название игры к нижнему регистру и убираем лишние пробелы
+        if name == search_query:
+            total_reviews = game_data["positive"] + game_data["negative"]
+            results.append((game_data, total_reviews))
+
+    # Сортировка результатов по количеству отзывов
+    sorted_results = sorted(results, key=lambda x: x[1], reverse=True)
+
+    print("Search game by exact name is done.")
+    return sorted_results[:1]  # Возвращаем только первый результат (если есть)
+
 
 
 def format_game_list(games):
@@ -92,21 +100,21 @@ if not os.path.exists(WISHLIST_DIR):
 def get_wishlist_path(user_id):
     return os.path.join(WISHLIST_DIR, f'{user_id}_wishlist.json')
 
-def read_wishlist(user_id):
 
+def read_wishlist(user_id):
     filename = get_wishlist_path(user_id)
     try:
         with open(filename, 'r', encoding='utf-8') as file:
-            print("Read wishlist of user: ",user_id)
             return json.load(file)
     except FileNotFoundError:
         return []
+
 
 def save_wishlist(user_id, wishlist):
     filename = get_wishlist_path(user_id)
     with open(filename, 'w', encoding='utf-8') as file:
         print("Save wishlist for user: ", user_id)
-        json.dump(wishlist, file, indent=4)  # Форматирование с отступами
+        json.dump(wishlist, file, indent=4)
 
 def add_game_to_wishlist(user_id, game):
     wishlist = read_wishlist(user_id)
@@ -116,9 +124,22 @@ def add_game_to_wishlist(user_id, game):
         print("Add game to wishlist of user: ", user_id)
     return wishlist
 
+def check_wishlist(user_id, game_name):
+    wishlist = read_wishlist(user_id)
+    for game in wishlist:
+        if game['name'] == game_name:
+            return True  # Игра уже есть в вишлисте
+    return False  # Игра не найдена в вишлисте
+
+def get_wishlist_count(user_id):
+    wishlist = read_wishlist(user_id)
+    return len(wishlist)
+
+
 def remove_game_from_wishlist(user_id, game_name):
     print("Remove game from wishlist of user: ", user_id)
     wishlist = read_wishlist(user_id)
     new_wishlist = [game for game in wishlist if game['name'] != game_name]
     save_wishlist(user_id, new_wishlist)
     return new_wishlist
+
