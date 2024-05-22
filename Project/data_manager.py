@@ -10,13 +10,14 @@ DATABASE = None
 async def preload_database():
     global DATABASE
     try:
-        with open('games.json', 'r', encoding='utf-8') as f:
+        with open('detailed_games.json', 'r', encoding='utf-8') as f:
             DATABASE = json.load(f)
-        print("Database preloaded successfully.")
+            print(type(DATABASE))
+            print("Database preloaded successfully.")
     except FileNotFoundError:
         print("JSON database file not found.")
-    except json.JSONDecodeError:
-        print("Error decoding JSON data.")
+    except json.JSONDecodeError as e:
+        print("Error decoding JSON data:", e)
 
 # Вызов функции предварительной загрузки базы данных при запуске бота
 asyncio.run(preload_database())
@@ -37,10 +38,10 @@ def find_games_by_name(game_name, database):
     results = {}
     search_query = game_name.lower().replace(" ", "")
     for game_id, game_data in database.items():
-        name = game_data["name"].lower().replace(" ", "")
+        name = game_data["Name"].lower().replace(" ", "")
         ratio = SequenceMatcher(None, search_query, name).ratio()
         if ratio > 0.7 or search_query in name:
-            total_reviews = game_data["positive"] + game_data["negative"]
+            total_reviews = game_data["PositiveReviews"] + game_data["NegativeReviews"]
             results[game_id] = (game_data, total_reviews)
 
     sorted_results = sorted(results.items(), key=lambda x: x[1][1], reverse=True)
@@ -51,15 +52,15 @@ def find_games_by_category(category, database):
     print("Search games by category has been started.")
     results = {}
     for game_id, game_data in database.items():
-        if isinstance(game_data.get("tags"), dict):
-            sorted_tags = sorted(game_data["tags"].items(), key=lambda x: x[1], reverse=True)[:3]
-            top_tags = [tag for tag, popularity in sorted_tags]
+        if isinstance(game_data.get("TopTags"), list):
+            top_tags = game_data["TopTags"]
             if any(category.lower() in tag.lower() for tag in top_tags):
-                total_reviews = game_data["positive"] + game_data["negative"]
+                total_reviews = game_data["PositiveReviews"] + game_data["NegativeReviews"]
                 results[game_id] = (game_data, total_reviews)
     sorted_results = sorted(results.items(), key=lambda x: x[1][1], reverse=True)
     print("Search games by category is done.")
     return sorted_results[:20]
+
 
 
 #search game for showing details
@@ -68,9 +69,9 @@ def find_game_by_exact_name(game_name, database):
     results = []
     search_query = game_name.lower().strip()  # Приводим запрос к нижнему регистру и убираем лишние пробелы
     for game_id, game_data in database.items():
-        name = game_data["name"].lower().strip()  # Приводим название игры к нижнему регистру и убираем лишние пробелы
+        name = game_data["Name"].lower().strip()  # Приводим название игры к нижнему регистру и убираем лишние пробелы
         if name == search_query:
-            total_reviews = game_data["positive"] + game_data["negative"]
+            total_reviews = game_data["PositiveReviews"] + game_data["NegativeReviews"]
             results.append((game_data, total_reviews))
 
     # Сортировка результатов по количеству отзывов
@@ -85,10 +86,10 @@ def format_game_list(games):
     message = ""
     for i, (game_data, total_reviews) in enumerate(games, start=1):
         if total_reviews > 0:
-            positive_percentage = (game_data["positive"] / total_reviews) * 100
+            positive_percentage = (game_data["PositiveReviews"] / total_reviews) * 100
         else:
             positive_percentage = 0
-        message += (f"{i}. {game_data['name']} (Reviews: {total_reviews})\n"
+        message += (f"{i}. {game_data['Name']} (Reviews: {total_reviews})\n"
                     f"\tPositive: {positive_percentage:.2f}%\n")
     return message
 
@@ -127,7 +128,7 @@ def add_game_to_wishlist(user_id, game):
 def check_wishlist(user_id, game_name):
     wishlist = read_wishlist(user_id)
     for game in wishlist:
-        if game['name'] == game_name:
+        if game['Name'] == game_name:
             return True  # Игра уже есть в вишлисте
     return False  # Игра не найдена в вишлисте
 
@@ -139,7 +140,19 @@ def get_wishlist_count(user_id):
 def remove_game_from_wishlist(user_id, game_name):
     print("Remove game from wishlist of user: ", user_id)
     wishlist = read_wishlist(user_id)
-    new_wishlist = [game for game in wishlist if game['name'] != game_name]
+    new_wishlist = [game for game in wishlist if game['Name'] != game_name]
     save_wishlist(user_id, new_wishlist)
     return new_wishlist
+
+# Функция для генерации файла вишлиста
+def generate_wishlist_file_txt(user_id):
+    wishlist = read_wishlist(user_id)
+    filename = f'wishlist_{user_id}.txt'
+    with open(filename, 'w', encoding='utf-8') as file:
+        for game in wishlist:
+            price = f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
+            file.write(f"{game['ID']}: {game['Name']} - {price}\n")
+    return filename
+
+
 

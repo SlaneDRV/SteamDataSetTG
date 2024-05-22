@@ -1,8 +1,10 @@
 from telebot import types
+import os
 import re
 from data_manager import (
     read_database, find_games_by_category, format_game_list, find_games_by_name, save_wishlist,
-    read_wishlist, add_game_to_wishlist, remove_game_from_wishlist, find_game_by_exact_name,check_wishlist,get_wishlist_count
+    read_wishlist, add_game_to_wishlist, remove_game_from_wishlist, find_game_by_exact_name,
+    check_wishlist,get_wishlist_count, generate_wishlist_file_txt
 )
 
 def setup_handlers(bot):
@@ -49,16 +51,16 @@ def setup_handlers(bot):
             bot.send_message(message.chat.id, "Your wishlist is empty.")
         else:
             for game in wishlist:
-                price = f"{game['price']}$" if game['price'] != 0.0 else 'Free'
+                price = f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
                 markup_inline.add(
-                    types.InlineKeyboardButton(f"{game['name']} - {price}", callback_data=f"wishlist_{game['name']}"))
+                    types.InlineKeyboardButton(f"{game['Name']} - {price}", callback_data=f"wishlist_{game['Name']}"))
 
         markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
         itembtn_view = types.KeyboardButton('View Wishlist')
-        # itembtn_add = types.KeyboardButton('Add Game to Wishlist')
+        itembtn_download = types.KeyboardButton('Download Wishlist')
         itembtn_remove = types.KeyboardButton('Remove Game from Wishlist')
         itembtn_back = types.KeyboardButton('Back')
-        markup.add(itembtn_view, itembtn_remove, itembtn_back)
+        markup.add(itembtn_view, itembtn_remove, itembtn_download, itembtn_back )
 
         wishlist_count = get_wishlist_count(user_id)
 
@@ -72,25 +74,25 @@ def setup_handlers(bot):
         wishlist = read_wishlist(call.message.chat.id)
 
         for game in wishlist:
-            if game['name'] == game_name:
-                image_url = game.get('header_image', None)
-                total_reviews = game['positive'] + game['negative']
-                positive_percentage = (game['positive'] / total_reviews) * 100 if total_reviews > 0 else 0
-                developer = ", ".join(game['developers']).strip("'\"") if isinstance(game['developers'], list) else \
-                    game['developers'].strip("'\"")
-                publisher = ", ".join(game['publishers']).strip("'\"") if isinstance(game['publishers'], list) else \
-                    game['publishers'].strip("'\"")
-                price = f"${game['price']}" if game['price'] != 0.0 else 'Free'
+            if game['Name'] == game_name:
+                image_url = game.get('ImageURL', None)
+                total_reviews = game['PositiveReviews'] + game['NegativeReviews']
+                positive_percentage = (game['PositiveReviews'] / total_reviews) * 100 if total_reviews > 0 else 0
+                developer = ", ".join(game['Developer']).strip("'\"") if isinstance(game['Developer'], list) else \
+                    game['Developer'].strip("'\"")
+                publisher = ", ".join(game['Publisher']).strip("'\"") if isinstance(game['Publisher'], list) else \
+                    game['Publisher'].strip("'\"")
+                price = f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
 
                 # Экранируем специальные символы для HTML
                 def escape_html(text):
                     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-                name = escape_html(game['name'])
-                short_description = escape_html(game['short_description'])
+                name = escape_html(game['Name'])
+                short_description = escape_html(game['ShortDesc'])
                 developer = escape_html(developer)
                 publisher = escape_html(publisher)
-                release_date = escape_html(game['release_date'])
+                release_date = escape_html(game['ReleaseDate'])
 
                 caption = (
                     f"<b>{name}</b>\n\n"
@@ -110,7 +112,7 @@ def setup_handlers(bot):
                 # Добавляем кнопку "Remove from Wishlist"
                 markup_inline = types.InlineKeyboardMarkup()
                 markup_inline.add(
-                    types.InlineKeyboardButton(f"Remove {game['name']} from Wishlist", callback_data=f"remove_{game['name']}"))
+                    types.InlineKeyboardButton(f"Remove {game['Name']} from Wishlist", callback_data=f"remove_{game['Name']}"))
                 bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",
                                  reply_markup=markup_inline)
                 break
@@ -128,23 +130,23 @@ def setup_handlers(bot):
         print("Games found:", game)
 
         if game:
-            image_url = game.get('header_image', None)
-            total_reviews = game['positive'] + game['negative']
-            positive_percentage = (game['positive'] / total_reviews) * 100 if total_reviews > 0 else 0
-            developer = ", ".join(game['developers']).strip("'\"") if isinstance(game['developers'], list) else game[
-                'developers'].strip("'\"")
-            publisher = ", ".join(game['publishers']).strip("'\"") if isinstance(game['publishers'], list) else game[
-                'publishers'].strip("'\"")
-            price = f"${game['price']}" if game['price'] != 0.0 else 'Free'
+            image_url = game.get('ImageURL', None)
+            total_reviews = game['PositiveReviews'] + game['NegativeReviews']
+            positive_percentage = (game['PositiveReviews'] / total_reviews) * 100 if total_reviews > 0 else 0
+            developer = ", ".join(game['Developer']).strip("'\"") if isinstance(game['Developer'], list) else game[
+                'Developer'].strip("'\"")
+            publisher = ", ".join(game['Publisher']).strip("'\"") if isinstance(game['Publisher'], list) else game[
+                'Publisher'].strip("'\"")
+            price = f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
 
             def escape_html(text):
                 return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-            name = escape_html(game['name'])
-            short_description = escape_html(game['short_description'])
+            name = escape_html(game['Name'])
+            short_description = escape_html(game['ShortDesc'])
             developer = escape_html(developer)
             publisher = escape_html(publisher)
-            release_date = escape_html(game['release_date'])
+            release_date = escape_html(game['ReleaseDate'])
 
             caption = (
                 f"<b>{name}</b>\n\n"
@@ -162,13 +164,13 @@ def setup_handlers(bot):
                 bot.send_message(call.message.chat.id, caption, parse_mode='HTML')
 
             markup_inline = types.InlineKeyboardMarkup()
-            if check_wishlist(call.message.chat.id, game['name']):
+            if check_wishlist(call.message.chat.id, game['Name']):
                 # Если игры нет в вишлисте, добавляем кнопку для добавления в вишлист
-                markup_inline.add(types.InlineKeyboardButton(f"Remove {game['name']} from Wishlist", callback_data=f"remove_{game['name']}"))
+                markup_inline.add(types.InlineKeyboardButton(f"Remove {game['Name']} from Wishlist", callback_data=f"remove_{game['Name']}"))
                 bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",reply_markup=markup_inline)
 
             else:
-                markup_inline.add(types.InlineKeyboardButton(f"Add {game['name']} to Wishlist", callback_data=f"add_{game['name']}"))
+                markup_inline.add(types.InlineKeyboardButton(f"Add {game['Name']} to Wishlist", callback_data=f"add_{game['Name']}"))
                 bot.send_message(call.message.chat.id, "Would you like to add this game to your Wishlist?",reply_markup=markup_inline)
         else:
             bot.send_message(call.message.chat.id, f"No details found for the game: {game_name}")
@@ -181,7 +183,7 @@ def setup_handlers(bot):
         markup = types.InlineKeyboardMarkup()
         for game_id, (game_data, _) in games:
             callback_data = f'list_{game_id}'
-            markup.add(types.InlineKeyboardButton(game_data["name"], callback_data=callback_data))
+            markup.add(types.InlineKeyboardButton(game_data["Name"], callback_data=callback_data))
         if games:
             bot.edit_message_text("Select a game:", message.chat.id, search_msg.message_id, reply_markup=markup)
         else:
@@ -193,7 +195,7 @@ def setup_handlers(bot):
         markup = types.InlineKeyboardMarkup()
         for game_id, (game_data, _) in games:
             callback_data = f'list_{game_id}'
-            markup.add(types.InlineKeyboardButton(game_data["name"], callback_data=callback_data))
+            markup.add(types.InlineKeyboardButton(game_data["Name"], callback_data=callback_data))
         if games:
             bot.edit_message_text("Select a game:", message.chat.id, search_msg.message_id, reply_markup=markup)
         else:
@@ -209,7 +211,7 @@ def setup_handlers(bot):
         if games:  # Проверяем, что данные игры доступны
             game_data = games[0][0]  # Extract game data from tuple
             add_game_to_wishlist(call.message.chat.id, game_data)
-            bot.edit_message_text(f"{game_data['name']} added to your wishlist.", call.message.chat.id,call.message.message_id)
+            bot.edit_message_text(f"{game_data['Name']} added to your wishlist.", call.message.chat.id,call.message.message_id)
 
 
         else:
@@ -223,8 +225,8 @@ def setup_handlers(bot):
             return
         markup = types.InlineKeyboardMarkup()
         for game in wishlist:
-            callback_data = f'remove_{game["name"]}'
-            markup.add(types.InlineKeyboardButton(game["name"], callback_data=callback_data))
+            callback_data = f'remove_{game["Name"]}'
+            markup.add(types.InlineKeyboardButton(game["Name"], callback_data=callback_data))
         bot.send_message(message.chat.id, "Choose a game to remove from your wishlist:", reply_markup=markup)
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('remove_'))
@@ -235,9 +237,12 @@ def setup_handlers(bot):
         bot.edit_message_text("Game removed from your wishlist.", call.message.chat.id, call.message.message_id)
 
 
-"""
-    @bot.message_handler(func=lambda message: message.text == "Add Game to Wishlist")
-    def prompt_for_game_name(message):
-        msg = bot.send_message(message.chat.id, "Please enter the name of the game you want to add:")
-        bot.register_next_step_handler(msg, search_game_by_name)
-"""
+    @bot.message_handler(func=lambda message: message.text == "Download Wishlist")
+    def download_wishlist(message):
+        user_id = message.chat.id
+        filename = generate_wishlist_file_txt(user_id)
+
+        with open(filename, 'rb') as file:
+            bot.send_document(message.chat.id, file)
+
+        os.remove(filename)  # Удаляем файл после отправки
