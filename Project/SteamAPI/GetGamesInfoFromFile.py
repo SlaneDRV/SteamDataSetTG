@@ -26,7 +26,7 @@ def analyze_games(file_path):
         return {}
 
 # Путь к файлу JSON с информацией об играх
-file_path = '../detailed_steam_games.json'
+file_path = 'detailed_steam_games.json'
 
 # Получаем и печатаем результаты анализа
 result = analyze_games(file_path)
