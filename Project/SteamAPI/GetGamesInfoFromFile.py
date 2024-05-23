@@ -9,7 +9,7 @@ def analyze_games(file_path):
         games_with_reviews = []
 
         for game in games:
-            if game.get("PositiveReviews", 0) > 5000:
+            if game.get("PositiveReviews", 0) + game.get("NegativeReviews", 0) > 5000:
                 games_with_reviews.append(game["Name"])
 
         return {
