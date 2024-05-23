@@ -2,27 +2,27 @@ import json
 import os
 from difflib import SequenceMatcher
 import asyncio
+import yaml
 
-# Глобальная переменная для хранения данных базы данных
+# Global variable for database storage
 DATABASE = None
 
-# Функция для предварительной загрузки базы данных
+# Preload the database function
 async def preload_database():
     global DATABASE
     try:
         with open('detailed_games.json', 'r', encoding='utf-8') as f:
             DATABASE = json.load(f)
-            print(type(DATABASE))
             print("Database preloaded successfully.")
     except FileNotFoundError:
         print("JSON database file not found.")
     except json.JSONDecodeError as e:
         print("Error decoding JSON data:", e)
 
-# Вызов функции предварительной загрузки базы данных при запуске бота
+# Call the preload function on bot startup
 asyncio.run(preload_database())
 
-# Остальной код без изменений...
+# Function to read the database
 def read_database():
     global DATABASE
     if DATABASE is None:
@@ -32,7 +32,7 @@ def read_database():
         print("Connected to JSON database successfully.")
         return DATABASE
 
-
+# Functions to find games by various criteria
 def find_games_by_name(game_name, database):
     print("Search games by name has been started.")
     results = {}
@@ -61,27 +61,22 @@ def find_games_by_category(category, database):
     print("Search games by category is done.")
     return sorted_results[:20]
 
-
-
-#search game for showing details
+# Function to find a game by exact name
 def find_game_by_exact_name(game_name, database):
     print("Search game by exact name has been started.")
     results = []
-    search_query = game_name.lower().strip()  # Приводим запрос к нижнему регистру и убираем лишние пробелы
+    search_query = game_name.lower().strip()
     for game_id, game_data in database.items():
-        name = game_data["Name"].lower().strip()  # Приводим название игры к нижнему регистру и убираем лишние пробелы
+        name = game_data["Name"].lower().strip()
         if name == search_query:
             total_reviews = game_data["PositiveReviews"] + game_data["NegativeReviews"]
             results.append((game_data, total_reviews))
 
-    # Сортировка результатов по количеству отзывов
     sorted_results = sorted(results, key=lambda x: x[1], reverse=True)
-
     print("Search game by exact name is done.")
-    return sorted_results[:1]  # Возвращаем только первый результат (если есть)
+    return sorted_results[:1]
 
-
-
+# Function to format the game list
 def format_game_list(games):
     message = ""
     for i, (game_data, total_reviews) in enumerate(games, start=1):
@@ -93,14 +88,13 @@ def format_game_list(games):
                     f"\tPositive: {positive_percentage:.2f}%\n")
     return message
 
+# Wishlist directory management
 WISHLIST_DIR = 'Wishlists'
-
 if not os.path.exists(WISHLIST_DIR):
     os.makedirs(WISHLIST_DIR)
 
 def get_wishlist_path(user_id):
     return os.path.join(WISHLIST_DIR, f'{user_id}_wishlist.json')
-
 
 def read_wishlist(user_id):
     filename = get_wishlist_path(user_id)
@@ -109,7 +103,6 @@ def read_wishlist(user_id):
             return json.load(file)
     except FileNotFoundError:
         return []
-
 
 def save_wishlist(user_id, wishlist):
     filename = get_wishlist_path(user_id)
@@ -125,17 +118,17 @@ def add_game_to_wishlist(user_id, game):
         print("Add game to wishlist of user: ", user_id)
     return wishlist
 
+
 def check_wishlist(user_id, game_name):
     wishlist = read_wishlist(user_id)
     for game in wishlist:
         if game['Name'] == game_name:
-            return True  # Игра уже есть в вишлисте
-    return False  # Игра не найдена в вишлисте
+            return True  # Game already in wishlist
+    return False  # Game not found in wishlist
 
 def get_wishlist_count(user_id):
     wishlist = read_wishlist(user_id)
     return len(wishlist)
-
 
 def remove_game_from_wishlist(user_id, game_name):
     print("Remove game from wishlist of user: ", user_id)
@@ -144,7 +137,7 @@ def remove_game_from_wishlist(user_id, game_name):
     save_wishlist(user_id, new_wishlist)
     return new_wishlist
 
-# Функция для генерации файла вишлиста
+# Functions for generating wishlist files
 def generate_wishlist_file_txt(user_id):
     wishlist = read_wishlist(user_id)
     filename = f'wishlist_{user_id}.txt'
@@ -154,5 +147,57 @@ def generate_wishlist_file_txt(user_id):
             file.write(f"{game['ID']}: {game['Name']} - {price}\n")
     return filename
 
+def filter_wishlist_fields(wishlist):
+    filtered_wishlist = []
+    for game in wishlist:
+        filtered_game = {
+            'ID': game['ID'],
+            'Name': game['Name'],
+            'Price': f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
+        }
+        filtered_wishlist.append(filtered_game)
+    return filtered_wishlist
+
+def generate_wishlist_file_json(user_id):
+    wishlist = read_wishlist(user_id)
+    filtered_wishlist = filter_wishlist_fields(wishlist)
+    filename = f'wishlist_{user_id}.json'
+    with open(filename, 'w', encoding='utf-8') as file:
+        json.dump(filtered_wishlist, file, ensure_ascii=False, indent=4)
+    return filename
+
+def generate_wishlist_file_yaml(user_id):
+    wishlist = read_wishlist(user_id)
+    filtered_wishlist = filter_wishlist_fields(wishlist)
+    filename = f'wishlist_{user_id}.yaml'
+    with open(filename, 'w', encoding='utf-8') as file:
+        yaml.dump(filtered_wishlist, file, allow_unicode=True)
+    return filename
+
+def read_json_wishlist(user_id):
+    filename = get_wishlist_path(user_id)
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            # Читаем существующие данные из файла
+            existing_data = json.load(file)
+    except FileNotFoundError:
+        # Если файл не существует, возвращаем пустой список
+        return []
+
+    # Возвращаем существующие данные
+    return existing_data
+
+
+def import_wishlist(user_id, imported_data):
+    # Читаем существующие данные из вишлиста
+    existing_data = read_json_wishlist(user_id)
+
+    # Добавляем импортированные данные к существующим данным
+    existing_data.extend(imported_data)
+
+    # Записываем обновленные данные обратно в файл
+    filename = f"{user_id}_wishlist.json"
+    with open(filename, 'w', encoding='utf-8') as file:
+        json.dump(existing_data, file, ensure_ascii=False, indent=4)
 
 
