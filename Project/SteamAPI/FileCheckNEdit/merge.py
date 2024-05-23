@@ -42,8 +42,8 @@ def merge_json_files(file_path1, file_path2, output_file_path):
 
 # Usage
 file_path1 = 'detailed_games_actual.json'
-file_path2 = '/SteamAPI/detailed_steam_games.json'
-output_file_path = 'detailed_games_new.json'
+file_path2 = '../detailed_steam_games.json'
+output_file_path = 'detailed_games_actual.json'
 merge_json_files(file_path1, file_path2, output_file_path)
 
 
