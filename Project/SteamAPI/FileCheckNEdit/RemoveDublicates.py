@@ -40,6 +40,6 @@ def main(input_file_path, output_file_path):
     save_json_data(cleaned_data, output_file_path)
 
 # Usage
-input_file_path = 'detailed_steam_games3.json'
-output_file_path = 'detailed_games.json'
+input_file_path = 'detailed_games_actual.json'
+output_file_path = 'detailed_games_actual.json'
 main(input_file_path, output_file_path)

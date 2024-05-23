@@ -10,6 +10,22 @@ import re
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+
+def is_data_complete(details):
+    # Validate that the 'developers' and 'publishers' lists are not only non-empty but also do not contain empty or 'Unknown' entries
+    developers = details.get('developers', [])
+    publishers = details.get('publishers', [])
+
+    # Check that developers and publishers exist, are not empty, and are not just "Unknown"
+    has_developers = any(dev for dev in developers if dev and dev != "Unknown")
+    has_publishers = any(pub for pub in publishers if pub and pub != "Unknown")
+
+    # Debug print to understand what's going on
+    print(f"Developers: {developers}, Publishers: {publishers}, Valid: {has_developers and has_publishers}")
+
+    return has_developers and has_publishers
+
+
 def create_session_with_retries():
     session = requests.Session()
     retry = Retry(
@@ -23,15 +39,22 @@ def create_session_with_retries():
     session.mount("https://", adapter)
     return session
 
+
 def load_existing_game_ids():
-    json_file_path = "FileCheckNEdit\\detailed_games_actual.json"
-    try:
-        with open(json_file_path, 'r', encoding='utf-8') as file:
-            data = json.load(file)
-            existing_ids = {game["ID"] for game in data}
-            return existing_ids
-    except (FileNotFoundError, json.JSONDecodeError):
-        return set()
+    def load_ids_from_file(json_file_path):
+        try:
+            with open(json_file_path, 'r', encoding='utf-8') as file:
+                data = json.load(file)
+                return {game["ID"] for game in data}
+        except (FileNotFoundError, json.JSONDecodeError):
+            return set()
+
+    valid_ids = load_ids_from_file("FileCheckNEdit/detailed_games_actual.json")
+    invalid_ids = load_ids_from_file("invalid_games.json")
+    combined_ids = valid_ids.union(invalid_ids)
+    print(f"Loaded {len(combined_ids)} existing game IDs from files.")
+    return combined_ids
+
 
 def parse_supported_languages(languages_html):
     languages_html = re.sub(r'<br><strong>\*</strong>languages with full audio support', '', languages_html)
@@ -54,6 +77,7 @@ def get_game_data_from_steamspy(appid):
 def get_all_games():
     response = requests.get("http://api.steampowered.com/ISteamApps/GetAppList/v2")
     games = response.json()['applist']['apps']
+    print(f"Total games fetched from Steam: {len(games)}")
     return games
 
 def fetch_game_details_from_steam(appid, api_key, country='US'):
@@ -82,18 +106,21 @@ def get_top_tags_for_game(appid, top_n=5):
     return ["No tags found"]
 
 
-def save_games_details(game_info):
-    json_file_path = "detailed_steam_games.json"
+def save_games_details(game_info, file_path):
+    json_file_path = file_path
+    if file_path == "invalid_games.json":
+        # If saving to the invalid games file, only save the ID and Name
+        game_info = {
+            "ID": game_info["ID"],
+            "Name": game_info["Name"]
+        }
     if Path(json_file_path).exists():
         with open(json_file_path, 'r', encoding='utf-8') as file:
-            try:
-                data = json.load(file)
-            except json.JSONDecodeError:
-                data = []
+            data = json.load(file)
     else:
         data = []
 
-    # Декодируем HTML-сущности в значениях, которые являются строками
+    # Decode HTML entities and save data
     for key, value in game_info.items():
         if isinstance(value, str):
             game_info[key] = html.unescape(value)
@@ -101,6 +128,7 @@ def save_games_details(game_info):
     data.append(game_info)
     with open(json_file_path, 'w', encoding='utf-8') as file:
         json.dump(data, file, indent=4, ensure_ascii=False)
+
 
 
 def load_progress():
@@ -117,60 +145,60 @@ def save_progress(last_index):
 
 def main(api_key):
     existing_ids = load_existing_game_ids()
-    games = get_all_games()
-    start_index = load_progress()
-    limit = 80000
-    end_index = min(start_index + limit, len(games))
-
-    for i in tqdm(range(start_index, end_index), desc="Processing games"):
-        appid = games[i]['appid']
-        if appid not in existing_ids:
-            try:
-                steam_data = fetch_game_details_from_steam(appid, api_key)
-                if steam_data and str(appid) in steam_data and steam_data[str(appid)].get('success'):
-                    steam_details = steam_data[str(appid)]['data']
-                    steamspy_data = get_game_data_from_steamspy(appid)
-                    top_tags = get_top_tags_for_game(appid)
-
-                    price = "Not available in this region"
-                    if steam_details.get('is_free', False):
-                        price = "Free"
-                    elif 'price_overview' in steam_details:
-                        price = steam_details['price_overview'].get('final_formatted', 'Price not available')
-                    elif 'release_date' in steam_details and steam_details['release_date'].get('coming_soon'):
-                        price = "Coming Soon"
-                    elif 'packages' in steam_details:
-                        for package in steam_details['packages']:
-                            if 'price' in package:
-                                price = package['price']
-                                break
-
-                    game_info = {
-                        "ID": appid,
-                        "Name": steam_details.get('name', 'Unknown'),
-                        "ImageURL": steam_details.get('header_image', 'No image available'),
-                        "Price": price,
-                        "Developer": steam_details.get('developers', ['Unknown'])[0],
-                        "Publisher": steam_details.get('publishers', ['Unknown'])[0],
-                        "PositiveReviews": steamspy_data["positive"],
-                        "NegativeReviews": steamspy_data["negative"],
-                        "DayPeak": steamspy_data["ccu"],
-                        "TopTags": top_tags,
-                        "LanguagesSub": parse_supported_languages(steam_details.get('supported_languages', 'Not available'))["Subtitles"],
-                        "LanguagesAudio": parse_supported_languages(steam_details.get('supported_languages', 'Not available'))["Full Audio"],
-                        "ShortDesc": steam_details.get('short_description', 'No description available'),
-                        "ReleaseDate": steam_details.get('release_date', {}).get('date', 'Unknown'),
-                        "Platforms": ', '.join(platform for platform, available in steam_details.get('platforms', {}).items() if available),
-                    }
-                    for key, value in game_info.items():
-                        print(f"{key}: {value}")
-                    if game_info["Developer"] != "Unknown" and game_info["Publisher"] != "":
-                        save_games_details(game_info)
-                save_progress(i + 1)
-            except Exception as e:
-                print(f"Failed to process game ID {appid}: {e}")
-                time.sleep(5)
-                continue
+    all_games = get_all_games()
+    games = [game for game in all_games if game['appid'] not in existing_ids]
+    print(f"Number of new games to process: {len(games)}")
+    for game in tqdm(games, desc="Processing new games"):
+        appid = game['appid']
+        print(f"Processing game ID: {appid}")
+        try:
+            steam_data = fetch_game_details_from_steam(appid, api_key)
+            if not steam_data or str(appid) not in steam_data or not steam_data[str(appid)].get('success'):
+                print(f"No valid data for {appid}, skipping...")
+            if steam_data and str(appid) in steam_data and steam_data[str(appid)].get('success'):
+                steam_details = steam_data[str(appid)]['data']
+                steamspy_data = get_game_data_from_steamspy(appid)
+                top_tags = get_top_tags_for_game(appid)
+                price = "Not available in this region"
+                if steam_details.get('is_free', False):
+                    price = "Free"
+                elif 'price_overview' in steam_details:
+                    price = steam_details['price_overview'].get('final_formatted', 'Price not available')
+                elif 'release_date' in steam_details and steam_details['release_date'].get('coming_soon'):
+                    price = "Coming Soon"
+                elif 'packages' in steam_details:
+                    for package in steam_details['packages']:
+                        if 'price' in package:
+                            price = package['price']
+                            break
+                game_info = {
+                    "ID": appid,
+                    "Name": steam_details.get('name', 'Unknown'),
+                    "ImageURL": steam_details.get('header_image', 'No image available'),
+                    "Price": price,
+                    "Developer": steam_details.get('developers', ['Unknown'])[0],
+                    "Publisher": steam_details.get('publishers', ['Unknown'])[0],
+                    "PositiveReviews": steamspy_data["positive"],
+                    "NegativeReviews": steamspy_data["negative"],
+                    "DayPeak": steamspy_data["ccu"],
+                    "TopTags": top_tags,
+                    "LanguagesSub": parse_supported_languages(steam_details.get('supported_languages', 'Not available'))["Subtitles"],
+                    "LanguagesAudio": parse_supported_languages(steam_details.get('supported_languages', 'Not available'))["Full Audio"],
+                    "ShortDesc": steam_details.get('short_description', 'No description available'),
+                    "ReleaseDate": steam_details.get('release_date', {}).get('date', 'Unknown'),
+                    "Platforms": ', '.join(platform for platform, available in steam_details.get('platforms', {}).items() if available),
+                }
+                for key, value in game_info.items():
+                    print(f"{key}: {value}")
+                print(f"Checking game {appid}: Developer - {steam_details.get('developers')}, Publisher - {steam_details.get('publishers')}")
+                if is_data_complete(steam_details):
+                    save_games_details(game_info, "detailed_steam_games.json")
+                else:
+                    save_games_details(game_info, "invalid_games.json")
+        except Exception as e:
+            print(f"Failed to process game ID {appid}: {e}")
+            time.sleep(5)
+            continue
 
 if __name__ == "__main__":
     api_key = 'D350BB8AC6A45C05FA8B4EF538CEAE64'  # Replace with your actual Steam API key

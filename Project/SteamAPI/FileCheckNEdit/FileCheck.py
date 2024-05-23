@@ -57,5 +57,5 @@ def main(file_path):
     report_findings(duplicates, incomplete_entries)
 
 # Usage
-file_path = 'detailed_games_new.json'
+file_path = 'detailed_games_actual.json'
 main(file_path)
