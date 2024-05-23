@@ -10,7 +10,7 @@ def analyze_games(file_path):
 
         for game in games:
             # Calculate the total reviews if available and check if it exceeds 5000
-            if game.get("PositiveReviews", 0) + game.get("NegativeReviews", 0) > 5000:
+            if game.get("PositiveReviews", 0) > 5000:
                 games_with_reviews.append(game["Name"])
 
         return {
@@ -27,7 +27,7 @@ def analyze_games(file_path):
         return {}
 
 # Paths to JSON files with game information
-detailed_file_path = 'detailed_steam_games.json'
+detailed_file_path = 'FileCheckNEdit/detailed_games_actual.json'
 invalid_file_path = 'invalid_games.json'
 
 # Analyze detailed and invalid games separately

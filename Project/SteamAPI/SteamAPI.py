@@ -161,10 +161,10 @@ def save_progress(last_index):
 def main(api_key):
     existing_ids = load_existing_game_ids()
     all_games = get_all_games()
-    games = [game for game in all_games if game['appid'] not in existing_ids]
+    steam_game_ids = set(int(game['appid']) for game in all_games)
+    games = steam_game_ids - existing_ids
     print(f"Number of new games to process: {len(games)}")
-    for game in tqdm(games, desc="Processing new games"):
-        appid = game['appid']
+    for appid in tqdm(games, desc="Processing new games"):
         print(f"Processing game ID: {appid}")
         try:
             steam_data = fetch_game_details_from_steam(appid, api_key)
