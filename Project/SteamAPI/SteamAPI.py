@@ -11,6 +11,21 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
+def save_invalid_game(appid):
+    json_file_path = "invalid_games.json"
+    game_info = {
+        "ID": appid,
+        "Name": "Invalid Game"  # Placeholder name indicating lack of valid data
+    }
+    if Path(json_file_path).exists():
+        with open(json_file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+    else:
+        data = []
+    data.append(game_info)
+    with open(json_file_path, 'w', encoding='utf-8') as file:
+        json.dump(data, file, indent=4, ensure_ascii=False)
+
 def is_data_complete(details):
     # Validate that the 'developers' and 'publishers' lists are not only non-empty but also do not contain empty or 'Unknown' entries
     developers = details.get('developers', [])
@@ -153,8 +168,10 @@ def main(api_key):
         print(f"Processing game ID: {appid}")
         try:
             steam_data = fetch_game_details_from_steam(appid, api_key)
-            if not steam_data or str(appid) not in steam_data or not steam_data[str(appid)].get('success'):
+            if not steam_data or not steam_data.get(str(appid), {}).get('success'):
                 print(f"No valid data for {appid}, skipping...")
+                save_invalid_game(appid)  # Save this ID as invalid
+                continue
             if steam_data and str(appid) in steam_data and steam_data[str(appid)].get('success'):
                 steam_details = steam_data[str(appid)]['data']
                 steamspy_data = get_game_data_from_steamspy(appid)
