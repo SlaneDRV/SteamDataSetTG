@@ -43,3 +43,7 @@ def main(input_file_path, output_file_path):
 input_file_path = 'detailed_games_actual.json'
 output_file_path = 'detailed_games_actual.json'
 main(input_file_path, output_file_path)
+
+input_file_path = 'invalid_games_actual.json'
+output_file_path = 'invalid_games_actual.json'
+main(input_file_path, output_file_path)

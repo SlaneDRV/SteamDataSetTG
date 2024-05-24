@@ -46,5 +46,9 @@ file_path2 = '../detailed_steam_games.json'
 output_file_path = 'detailed_games_actual.json'
 merge_json_files(file_path1, file_path2, output_file_path)
 
+file_path1 = 'invalid_games_actual.json'
+file_path2 = '../invalid_games.json'
+output_file_path = 'invalid_games_actual.json'
+merge_json_files(file_path1, file_path2, output_file_path)
 
 

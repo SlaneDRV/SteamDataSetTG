@@ -11,7 +11,7 @@ def load_json_data(file_path):
         print(f"Error: File is not a valid JSON - {file_path}")
     return None
 
-def check_for_duplicates_and_completeness(data):
+def check_for_duplicates_and_completeness(data, file_name):
     """Check for duplicate IDs and completeness of game data, return any issues found."""
     seen_ids = set()
     duplicates = set()
@@ -22,6 +22,12 @@ def check_for_duplicates_and_completeness(data):
         "NegativeReviews", "DayPeak", "TopTags", "LanguagesSub", "LanguagesAudio",
         "ShortDesc", "ReleaseDate", "Platforms"
     ]
+
+    if file_name == 'invalid_games_actual.json':
+        essential_fields = [
+            "ID", "Name"
+        ]
+
 
     for entry in data:
         game_id = entry.get("ID")
@@ -53,9 +59,11 @@ def main(file_path):
         print("No data to process.")
         return
 
-    duplicates, incomplete_entries = check_for_duplicates_and_completeness(data)
+    duplicates, incomplete_entries = check_for_duplicates_and_completeness(data,file_path)
     report_findings(duplicates, incomplete_entries)
 
 # Usage
 file_path = 'detailed_games_actual.json'
+main(file_path)
+file_path = 'invalid_games_actual.json'
 main(file_path)

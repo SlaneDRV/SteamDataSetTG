@@ -65,7 +65,7 @@ def load_existing_game_ids():
             return set()
 
     valid_ids = load_ids_from_file("FileCheckNEdit/detailed_games_actual.json")
-    invalid_ids = load_ids_from_file("invalid_games.json")
+    invalid_ids = load_ids_from_file("FileCheckNEdit/invalid_games_actual.json")
     combined_ids = valid_ids.union(invalid_ids)
     print(f"Loaded {len(combined_ids)} existing game IDs from files.")
     return combined_ids
