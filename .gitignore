@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 Project/games.json
 *.json
+Project/TgBot/config.py
