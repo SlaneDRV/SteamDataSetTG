@@ -1,6 +1,7 @@
 import html
 import time
 from pathlib import Path
+from TgBot import config
 
 import requests
 import json
@@ -218,5 +219,5 @@ def main(api_key):
             continue
 
 if __name__ == "__main__":
-    api_key = 'D350BB8AC6A45C05FA8B4EF538CEAE64'  # Replace with your actual Steam API key
+    api_key = config.SteamKey  # Replace with your actual Steam API key
     main(api_key)
