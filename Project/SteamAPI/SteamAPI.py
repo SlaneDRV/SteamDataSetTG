@@ -58,8 +58,8 @@ def load_existing_game_ids():
         except (FileNotFoundError, json.JSONDecodeError):
             return set()
 
-    valid_ids = load_ids_from_file("detailed_games_actual.json")
-    invalid_ids = load_ids_from_file("invalid_games_actual.json")
+    valid_ids = load_ids_from_file("JSON/detailed_games_actual.json")
+    invalid_ids = load_ids_from_file("JSON/invalid_games_actual.json")
     combined_ids = valid_ids.union(invalid_ids)
     return combined_ids
 
@@ -282,19 +282,22 @@ def main(api_key):
             for future in tqdm(as_completed(futures), total=len(futures), desc="Processing new games"):
                 future.result()
 
-        merge_json_files("detailed_games_actual.json", "detailed_steam_games.json", "detailed_games_actual.json")
-        merge_json_files("invalid_games_actual.json", "invalid_games.json", "invalid_games_actual.json")
-        data1 = load_json_file("detailed_games_actual.json")
-        duplicates1, incomplete_entries1 = check_for_duplicates_and_completeness(data1, "detailed_games_actual.json")
-        data2 = load_json_file("invalid_games_actual.json")
-        duplicates2, incomplete_entries2 = check_for_duplicates_and_completeness(data2, "invalid_games_actual.json")
+        merge_json_files("JSON/detailed_games_actual.json", "detailed_steam_games.json",
+                         "JSON/detailed_games_actual.json")
+        merge_json_files("JSON/invalid_games_actual.json", "invalid_games.json", "JSON/invalid_games_actual.json")
+        data1 = load_json_file("JSON/detailed_games_actual.json")
+        duplicates1, incomplete_entries1 = check_for_duplicates_and_completeness(data1,
+                                                                                 "JSON/detailed_games_actual.json")
+        data2 = load_json_file("JSON/invalid_games_actual.json")
+        duplicates2, incomplete_entries2 = check_for_duplicates_and_completeness(data2,
+                                                                                 "JSON/invalid_games_actual.json")
         if duplicates1:
             cleaned_data = remove_duplicates(data1)
-            save_json_file(cleaned_data, "detailed_games_actual.json")
+            save_json_file(cleaned_data, "JSON/detailed_games_actual.json")
         if duplicates2:
             cleaned_data = remove_duplicates(data2)
-            save_json_file(cleaned_data, "invalid_games_actual.json")
-        transform_json("detailed_games_actual.json", "detailed_games_transformed.json")
+            save_json_file(cleaned_data, "JSON/invalid_games_actual.json")
+        transform_json("JSON/detailed_games_actual.json", "JSON/detailed_games_transformed.json")
     else:
         print("No new games found")
 
