@@ -84,38 +84,30 @@ def setup_handlers(bot):
     @bot.callback_query_handler(func=lambda call: call.data.startswith('wishlist_'))
     def show_game_details(call):
         game_name = call.data.split('_', 1)[1]
-        print("NAME:   ",game_name)
-        # Находим игру в списке желаемых игр по имени
         game_data = find_game_by_exact_name_wish(game_name, call.message.chat.id)
-        # Проверяем, найдена ли игра в списке
         if game_data:
-            print("DATA:   ", game_data)
-            # Получаем информацию об игре из базы данных бота
             game_info = find_game_by_exact_name(game_name, read_database())
-            # Проверяем, найдена ли информация об игре в базе данных
-            print("Info:  ", game_info)
             if game_info:
-                image_url = game_info[0][0]['ImageURL']
-                total_reviews = game_info[0][0]['PositiveReviews'] + game_info[0][0]['NegativeReviews']
-                positive_percentage = (game_info[0][0]['PositiveReviews'] / total_reviews) * 100 if total_reviews > 0 else 0
-                developer = ", ".join(game_info[0][0]['Developer']).strip("'\"") if isinstance(game_info[0][0]['Developer'],
-                                                                                         list) else \
-                    game_info[0][0]['Developer'].strip("'\"")
-                publisher = ", ".join(game_info[0][0]['Publisher']).strip("'\"") if isinstance(game_info[0][0]['Publisher'],
-                                                                                         list) else \
-                    game_info[0][0]['Publisher'].strip("'\"")
-                price = f"{game_info[0][0]['Price']}" if game_info[0][0]['Price'] != 0.0 else 'Free'
-                href = f"https://store.steampowered.com/app/{game_info[0][0]['ID']}"
+                game_info = game_info[0][0]  # Corrected line to access game data correctly
+                image_url = game_info['ImageURL']
+                total_reviews = game_info['PositiveReviews'] + game_info['NegativeReviews']
+                positive_percentage = (game_info['PositiveReviews'] / total_reviews * 100) if total_reviews > 0 else 0
+                developer = ", ".join(game_info['Developer']) if isinstance(game_info['Developer'], list) else \
+                game_info['Developer']
+                publisher = ", ".join(game_info['Publisher']) if isinstance(game_info['Publisher'], list) else \
+                game_info['Publisher']
+                tags = ", ".join(game_info['TopTags']) if game_info['TopTags'] else "No tags found"  # Corrected line
+                price = f"{game_info['Price']}" if game_info['Price'] != "Free" else 'Free'
+                href = f"https://store.steampowered.com/app/{game_info['ID']}"
 
-                # Экранируем специальные символы для HTML
                 def escape_html(text):
                     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
-                name = escape_html(game_info[0][0]['Name'])
-                short_description = escape_html(game_info[0][0]['ShortDesc'])
+                name = escape_html(game_info['Name'])
+                short_description = escape_html(game_info['ShortDesc'])
                 developer = escape_html(developer)
                 publisher = escape_html(publisher)
-                release_date = escape_html(game_info[0][0]['ReleaseDate'])
+                release_date = escape_html(game_info['ReleaseDate'])
 
                 caption = (
                     f"<b>{name}</b>\n\n"
@@ -124,6 +116,7 @@ def setup_handlers(bot):
                     f"<b>Release date:</b>           {release_date}\n"
                     f"<b>Developer:</b>               {developer}\n"
                     f"<b>Publisher:</b>                 {publisher}\n\n"
+                    f"<b>Tags:</b>     {tags}\n"                
                     f"<b>Price:</b>     {price}\n"
                     f"{href}"
                 )
@@ -133,42 +126,37 @@ def setup_handlers(bot):
                 else:
                     bot.send_message(call.message.chat.id, caption, parse_mode='HTML')
 
-                # Добавляем кнопку "Remove from Wishlist"
                 markup_inline = types.InlineKeyboardMarkup()
                 markup_inline.add(
-                    types.InlineKeyboardButton(f"Remove {game_info[0][0]['Name']} from Wishlist",
-                                               callback_data=f"remove_{game_info[0][0]['Name']}"))
+                    types.InlineKeyboardButton(f"Remove {game_info['Name']} from Wishlist",
+                                               callback_data=f"remove_{game_info['Name']}")
+                )
                 bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",
                                  reply_markup=markup_inline)
             else:
-                bot.send_message(call.message.chat.id, f"Информация об игре '{game_name}' не найдена в базе данных.")
+                bot.send_message(call.message.chat.id, f"Information about '{game_name}' not found in the database.")
         else:
-            bot.send_message(call.message.chat.id, f"Игра '{game_name}' не найдена в списке желаемых игр.")
-
-
-
+            bot.send_message(call.message.chat.id, f"Game '{game_name}' not found in your Wishlist.")
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('list_'))
     def show_game_details_list(call):
         print("Processing list callback...")
         game_id = call.data.split('_', 1)[1]
-        game_name = call.data.split('_', 1)[1]
-        print("Game name extracted:", game_name)
+        print("Game ID extracted:", game_id)
         database = read_database()
         print("Database loaded.")
 
         game = database.get(game_id)
-        print("Games found:", game)
+        print("Game found:", game)
 
         if game:
             image_url = game.get('ImageURL', None)
             total_reviews = game['PositiveReviews'] + game['NegativeReviews']
             positive_percentage = (game['PositiveReviews'] / total_reviews) * 100 if total_reviews > 0 else 0
-            developer = ", ".join(game['Developer']).strip("'\"") if isinstance(game['Developer'], list) else game[
-                'Developer'].strip("'\"")
-            publisher = ", ".join(game['Publisher']).strip("'\"") if isinstance(game['Publisher'], list) else game[
-                'Publisher'].strip("'\"")
-            price = f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
+            developer = ", ".join(game['Developer']) if isinstance(game['Developer'], list) else game['Developer']
+            publisher = ", ".join(game['Publisher']) if isinstance(game['Publisher'], list) else game['Publisher']
+            tags = ", ".join(game['TopTags']) if game['TopTags'] else "No tags found"
+            price = f"{game['Price']}" if game['Price'] != "Free" else 'Free'
             href = f"https://store.steampowered.com/app/{game['ID']}"
 
             def escape_html(text):
@@ -187,6 +175,7 @@ def setup_handlers(bot):
                 f"<b>Release date:</b>           {release_date}\n"
                 f"<b>Developer:</b>               {developer}\n"
                 f"<b>Publisher:</b>                 {publisher}\n\n"
+                f"<b>Tags:</b>     {tags}\n"                
                 f"<b>Price:</b>     {price}\n"
                 f"{href}"
             )
@@ -196,17 +185,22 @@ def setup_handlers(bot):
             else:
                 bot.send_message(call.message.chat.id, caption, parse_mode='HTML')
 
+                # Check if the game is in wishlist and update the buttons accordingly
             markup_inline = types.InlineKeyboardMarkup()
             if check_wishlist(call.message.chat.id, game['Name']):
-                # Если игры нет в вишлисте, добавляем кнопку для добавления в вишлист
-                markup_inline.add(types.InlineKeyboardButton(f"Remove {game['Name']} from Wishlist", callback_data=f"remove_{game['Name']}"))
-                bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",reply_markup=markup_inline)
-
+                # If the game is in wishlist, add a button for removing it
+                markup_inline.add(types.InlineKeyboardButton(f"Remove {game['Name']} from Wishlist",
+                                                             callback_data=f"remove_{game['Name']}"))
+                bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",
+                                 reply_markup=markup_inline)
             else:
-                markup_inline.add(types.InlineKeyboardButton(f"Add {game['Name']} to Wishlist", callback_data=f"add_{game['Name']}"))
-                bot.send_message(call.message.chat.id, "Would you like to add this game to your Wishlist?",reply_markup=markup_inline)
+                # If the game is not in wishlist, add a button for adding it
+                markup_inline.add(
+                    types.InlineKeyboardButton(f"Add {game['Name']} to Wishlist", callback_data=f"add_{game['Name']}"))
+                bot.send_message(call.message.chat.id, "Would you like to add this game to your Wishlist?",
+                                 reply_markup=markup_inline)
         else:
-            bot.send_message(call.message.chat.id, f"No details found for the game: {game_name}")
+            bot.send_message(call.message.chat.id, f"No details found for the game ID: {game_id}")
 
 
 

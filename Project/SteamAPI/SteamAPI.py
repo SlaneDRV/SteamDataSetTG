@@ -227,6 +227,10 @@ def process_game(appid, session, api_key):
             return None
 
         steam_details = steam_data[str(appid)]['data']
+        if 'trailer' in steam_details.get('name', '').lower() and not steam_details.get('short_description'):
+            save_invalid_game(appid)
+            return None
+
         steamspy_data = get_game_data_from_steamspy(appid)
         top_tags = get_top_tags_for_game(appid)
         price = "N/A"
@@ -265,6 +269,7 @@ def process_game(appid, session, api_key):
         return appid
     except Exception as e:
         print(f"Failed to process game ID {appid}: {e}")
+        save_invalid_game(appid, str(e))
         return None
 
 def main(api_key):
