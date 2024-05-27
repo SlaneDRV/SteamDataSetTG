@@ -218,7 +218,7 @@ def setup_handlers(bot):
 
     def search_game_by_category(message):
         search_msg = bot.send_message(message.chat.id, f"Searching for games by category '{message.text}'...")
-        games = find_games_by_category(message.text, read_database())[:10]
+        games = find_games_by_category(message.text, read_database())[:20]
         markup = types.InlineKeyboardMarkup()
         for game_id, (game_data, _) in games:
             callback_data = f'list_{game_id}'
