@@ -18,7 +18,7 @@ def save_invalid_game(appid):
     json_file_path = "invalid_games.json"
     game_info = {
         "ID": appid,
-        "Name": "Invalid Game"  # Placeholder name indicating lack of valid data
+        "Name": "Invalid Game"
     }
     if Path(json_file_path).exists():
         with open(json_file_path, 'r', encoding='utf-8') as file:
@@ -162,8 +162,6 @@ def merge_json_files(file_path1, file_path2, output_file_path):
 
     combined_data = data1 + data2
     save_json_file(combined_data, output_file_path)
-
-    # Удаление файла file_path2 после объединения данных
     try:
         os.remove(file_path2)
         print(f"File {file_path2} has been removed.")
@@ -302,5 +300,5 @@ def main(api_key):
         print("No new games found")
 
 if __name__ == "__main__":
-    api_key = config.SteamKey  # Replace with your actual Steam API key
+    api_key = config.SteamKey
     main(api_key)

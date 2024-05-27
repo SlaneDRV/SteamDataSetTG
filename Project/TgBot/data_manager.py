@@ -11,7 +11,7 @@ DATABASE = None
 async def preload_database():
     global DATABASE
     try:
-        with open('detailed_games.json', 'r', encoding='utf-8') as f:
+        with open('../SteamAPI/JSON/detailed_games_transformed.json', 'r', encoding='utf-8') as f:
             DATABASE = json.load(f)
             print("Database preloaded successfully.")
     except FileNotFoundError:
