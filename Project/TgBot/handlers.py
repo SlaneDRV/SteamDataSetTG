@@ -1,3 +1,6 @@
+from datetime import datetime
+
+import requests
 from telebot import types
 import os
 import re
@@ -44,13 +47,11 @@ def setup_handlers(bot):
         msg = bot.send_message(message.chat.id, "Please enter the name of the game you're looking for.")
         bot.register_next_step_handler(msg, search_game_by_name)
 
-
-
     @bot.message_handler(func=lambda message: message.text in ["Wishlist", "View Wishlist"])
     def show_wishlist(message):
         user_id = message.chat.id
         wishlist = read_wishlist(user_id)
-        markup_inline = types.InlineKeyboardMarkup()
+        markup_inline = types.InlineKeyboardMarkup(row_width=2)
         if not wishlist:
             bot.send_message(message.chat.id, "Your wishlist is empty.")
         else:
@@ -59,19 +60,154 @@ def setup_handlers(bot):
                 markup_inline.add(
                     types.InlineKeyboardButton(f"{game['Name']} - {price}", callback_data=f"wishlist_{game['Name']}"))
 
-        markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
         itembtn_view = types.KeyboardButton('View Wishlist')
         itembtn_import = types.KeyboardButton('Import Wishlist')
         itembtn_download = types.KeyboardButton('Download Wishlist')
         itembtn_remove = types.KeyboardButton('Remove Game from Wishlist')
+        itembtn_total_price = types.KeyboardButton('Calculate Total Price')
         itembtn_back = types.KeyboardButton('Back')
-        markup.add(itembtn_view, itembtn_download, itembtn_import, itembtn_remove,  itembtn_back )
+        markup.add(itembtn_total_price, itembtn_view)
+        markup.add(itembtn_download, itembtn_import)
+        markup.add(itembtn_remove, itembtn_back)
 
         wishlist_count = get_wishlist_count(user_id)
 
         bot.send_message(message.chat.id, "Your Wishlist:", reply_markup=markup_inline)
         bot.send_message(message.chat.id, f"You have {wishlist_count} games in your Wishlist.")
         bot.send_message(message.chat.id, "Choose an option:", reply_markup=markup)
+
+        @bot.message_handler(func=lambda message: message.text == "Calculate Total Price")
+        def handle_total_price(message):
+            markup = types.InlineKeyboardMarkup()
+            button_ru = types.InlineKeyboardButton("🇷🇺", callback_data="price_ru")
+            button_ua = types.InlineKeyboardButton("🇺🇦", callback_data="price_ua")
+            button_tr = types.InlineKeyboardButton("🇹🇷", callback_data="price_tr")
+            button_kz = types.InlineKeyboardButton("🇰🇿", callback_data="price_kz")
+            button_pl = types.InlineKeyboardButton("🇵🇱", callback_data="price_pl")
+            markup.add(button_ru, button_ua, button_tr, button_kz, button_pl)
+            bot.send_message(message.chat.id, "Select region:", reply_markup=markup)
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith("price_"))
+        def handle_price_region(call):
+            region_code = call.data.split('_')[1]
+            user_id = call.message.chat.id
+            wishlist = read_wishlist(user_id)
+            game_info = [(game['ID'], game['Name'], game['Price'], game['ReleaseDate']) for game in wishlist]
+            total_price, currency, available_games, unavailable_games, free_games, upcoming_games = calculate_regional_prices(
+                game_info, region_code)
+            us_total_price = calculate_us_prices(game_info, unavailable_games)
+
+            region_names = {
+                "ru": "Russia",
+                "ua": "Ukraine",
+                "tr": "Turkey",
+                "kz": "Kazakhstan",
+                "pl": "Poland"
+            }
+            currency_symbols = {
+                "ru": "₽",
+                "ua": "₴",
+                "tr": "₺",
+                "kz": "₸",
+                "pl": "zł"
+            }
+
+            region_name = region_names.get(region_code, "Unknown region")
+            currency_symbol = currency_symbols.get(region_code, "$")  # Default to Dollar
+
+            available_games_text = "\n".join(available_games) if available_games else "No available games."
+            unavailable_games_text = "\n".join(unavailable_games) if unavailable_games else "All games are available."
+            free_games_text = "\n".join(free_games) if free_games else "No free games."
+            upcoming_games_text = "\n".join(upcoming_games) if upcoming_games else "No upcoming games."
+
+            bot.answer_callback_query(call.id)
+            bot.send_message(
+                call.message.chat.id,
+                (f"Total price of games in US region: ${us_total_price:.2f}\n\n"
+                 f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f}\n\n"
+                 f"Available games:\n{available_games_text}\n\n"
+                 f"Free games:\n{free_games_text}\n\n"
+                 f"Upcoming games:\n{upcoming_games_text}\n\n"
+                 f"Unavailable games:\n{unavailable_games_text}\n\n")
+            )
+
+    def calculate_regional_prices(game_info, region):
+        total_price = 0
+        currency = "USD"  # Default value
+        available_games = []
+        unavailable_games = []
+        free_games = []
+        upcoming_games = []
+
+        for game_id, game_name, game_price, release_date in game_info:
+            # Check for free games
+            if game_price.lower() == "free":
+                free_games.append(game_name)
+                continue
+
+            # Check for upcoming games
+            if is_upcoming_game(release_date):
+                upcoming_games.append(game_name)
+                continue
+
+            price_info, cur, available = get_steam_price(game_id, region)
+            if available:
+                total_price += price_info
+                currency = cur  # Update currency based on the last available game's currency
+                available_games.append(game_name)
+            else:
+                unavailable_games.append(game_name)
+
+        return total_price, currency, available_games, unavailable_games, free_games, upcoming_games
+
+    def calculate_us_prices(game_info, unavailable_games):
+        total_price = 0
+        for game_id, game_name, game_price, release_date in game_info:
+            if game_name in unavailable_games:
+                continue
+            # Exclude free and upcoming games
+            if game_price.lower() == "free" or is_upcoming_game(release_date):
+                continue
+            # Extract numeric price from string
+            price_value = float(game_price.replace("$", "")) if game_price.startswith("$") else 0
+            total_price += price_value
+        return total_price
+
+    def is_upcoming_game(release_date):
+        # Check if the release date is a future date
+        try:
+            if release_date.lower() == "coming soon":
+                return True
+            release_date = datetime.strptime(release_date, "%b %d, %Y")
+            return release_date > datetime.now()
+        except ValueError:
+            return False  # If the date is incorrect or not provided
+
+    def get_steam_price(game_id, region):
+        api_url = f"https://store.steampowered.com/api/appdetails?appids={game_id}&cc={region}&filters=price_overview"
+        response = requests.get(api_url)
+        data = response.json()
+        print(f"API Response for game ID {game_id}:", data)  # Log API response for analysis
+
+        try:
+            # Check if 'data' is a dictionary
+            if isinstance(data, dict):
+                if data[str(game_id)]['success']:
+                    price_data = data[str(game_id)]['data']['price_overview']
+                    price = price_data['final'] / 100.0  # Steam API returns price in cents
+                    currency = price_data['currency']
+                    return price, currency, True
+                else:
+                    return 0, "USD", False
+            else:
+                price_data = data[0]['data']['price_overview']  # If it's a list, take the first element
+                price = price_data['final'] / 100.0  # Steam API returns price in cents
+                currency = price_data['currency']
+                return price, currency, True
+        except (KeyError, TypeError) as e:
+            print(f"Error accessing data for game ID {game_id}:", e)
+            return 0, "USD", False  # Default to USD in case of error
 
     def find_game_by_exact_name_wish(game_name,user_id):
 
@@ -80,6 +216,8 @@ def setup_handlers(bot):
             if game['Name'] == game_name:
                 return game
         return None
+
+
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('wishlist_'))
     def show_game_details(call):
