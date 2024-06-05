@@ -92,9 +92,11 @@ def fetch_game_details_from_steam(appid, session, api_key, country='US'):
         try:
             response = session.get(url)
             response.raise_for_status()
-            if not response.content:
-                raise ValueError(f"Empty response for appid {appid}")
-            return response.json()
+            if not response.content:  # Check if the response is empty
+                print(f"Empty response for appid {appid}")
+                return None  # Skip processing this game
+            cleaned_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', response.text)  # Remove control characters
+            return json.loads(cleaned_content)
         except requests.exceptions.HTTPError as err:
             if response.status_code == 429:
                 time.sleep(5)
@@ -104,6 +106,8 @@ def fetch_game_details_from_steam(appid, session, api_key, country='US'):
         except ValueError as e:
             print(e)
             return None
+
+
 
 def get_top_tags_for_game(appid):
     data = get_game_data_from_steamspy(appid)
@@ -269,22 +273,34 @@ def process_game(appid, session, api_key):
         return appid
     except Exception as e:
         print(f"Failed to process game ID {appid}: {e}")
-        save_invalid_game(appid, str(e))
+        save_invalid_game(appid)
         return None
+
 
 def main(api_key):
     existing_ids = load_existing_game_ids()
     all_games = get_all_games()
     steam_game_ids = set(int(game['appid']) for game in all_games)
-    games = steam_game_ids - existing_ids
-    if games:
-        session = create_session_with_retries()
+    new_games = list(steam_game_ids - existing_ids)
+
+    new_games_count = len(new_games)
+
+    print("Count of new games:",new_games_count)
+
+    session = create_session_with_retries()
+
+    # Process games in batches of 100
+    batch_size = 100
+    for i in range(0, len(new_games), batch_size):
+        current_batch = new_games[i:i + batch_size]
+        print(f"Processing batch from game {i + 1} to {i + len(current_batch)}...")
 
         with ThreadPoolExecutor(max_workers=2) as executor:
-            futures = [executor.submit(process_game, appid, session, api_key) for appid in games]
+            futures = [executor.submit(process_game, appid, session, api_key) for appid in current_batch]
             for future in tqdm(as_completed(futures), total=len(futures), desc="Processing new games"):
                 future.result()
 
+        # Merge and check details after each batch
         merge_json_files("JSON/detailed_games_actual.json", "detailed_steam_games.json",
                          "JSON/detailed_games_actual.json")
         merge_json_files("JSON/invalid_games_actual.json", "invalid_games.json", "JSON/invalid_games_actual.json")
@@ -294,16 +310,22 @@ def main(api_key):
         data2 = load_json_file("JSON/invalid_games_actual.json")
         duplicates2, incomplete_entries2 = check_for_duplicates_and_completeness(data2,
                                                                                  "JSON/invalid_games_actual.json")
+
         if duplicates1:
             cleaned_data = remove_duplicates(data1)
             save_json_file(cleaned_data, "JSON/detailed_games_actual.json")
         if duplicates2:
             cleaned_data = remove_duplicates(data2)
             save_json_file(cleaned_data, "JSON/invalid_games_actual.json")
+
         transform_json("JSON/detailed_games_actual.json", "JSON/detailed_games_transformed.json")
-    else:
-        print("No new games found")
+
+        print(f"Batch processing complete for games {i + 1} to {i + len(current_batch)}.")
+
+    print("All new games processed.")
+
 
 if __name__ == "__main__":
     api_key = config.SteamKey
     main(api_key)
+

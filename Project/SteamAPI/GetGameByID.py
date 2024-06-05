@@ -17,7 +17,7 @@ def create_session_with_retries():
     session.mount("https://", adapter)
     return session
 
-def get_game_details_from_steam(appid, api_key, country='UA'):
+def get_game_details_from_steam(appid, api_key, country='US'):
     url = f"http://store.steampowered.com/api/appdetails?appids={appid}&cc={country}&key={api_key}"
     session = create_session_with_retries()
     while True:
@@ -82,7 +82,7 @@ def get_game_info(appid, api_key):
 
 if __name__ == "__main__":
     api_key = 'D350BB8AC6A45C05FA8B4EF538CEAE64'  # Replace with your actual Steam API key
-    appid = 1318070  # Replace with the actual appid of the game
+    appid = 2291760  # Replace with the actual appid of the game
     result = get_game_info(appid, api_key)
     print(json.dumps(result, indent=4))  # This prints the JSON to the console
     save_to_json(result)  # This saves the JSON to a file
