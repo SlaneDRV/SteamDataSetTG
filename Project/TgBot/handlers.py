@@ -117,15 +117,25 @@ def setup_handlers(bot):
                 "pl": "Poland",
                 "cn": "China"
             }
+            currency_symbols = {
+                "RUB": "₽",
+                "UAH": "₴",
+                "TRY": "₺",
+                "KZT": "₸",
+                "PLN": "zł",
+                "CNY": "¥",  # Corrected symbol for Chinese Yuan
+                "USD": "$"
+            }
 
             region_name = region_names.get(region_code, "Unknown region")
+            currency_symbol = currency_symbols.get(currency, "$")
 
             bot.answer_callback_query(call.id)
             bot.send_message(
                 call.message.chat.id,
                 (
                     f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n\n"
-                    f"Total price of games in {region_name}: {total_price:.2f} (~${total_price_usd:.2f})\n\n"
+                    f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n\n"
                     f"Available games:\n{'\n'.join(available_games) if available_games else 'All games are available.'}\n\n"
                     f"Free games:\n{'\n'.join(free_games) if free_games else 'No free games.'}\n\n"
                     f"Upcoming games:\n{'\n'.join(upcoming_games) if upcoming_games else 'No upcoming games.'}\n\n"
@@ -469,11 +479,3 @@ def setup_handlers(bot):
         except Exception as e:
             bot.send_message(user_id, f"An error occurred: {str(e)}")
             print(f"An error occurred: {str(e)}")
-
-
-
-
-
-
-
-
