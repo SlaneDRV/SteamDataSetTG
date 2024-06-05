@@ -4,6 +4,8 @@ import requests
 from telebot import types
 import os
 import re
+import matplotlib.pyplot as plt
+import io
 from data_manager import (
     read_database, find_games_by_category, format_game_list, find_games_by_name, save_wishlist,
     read_wishlist, add_game_to_wishlist, remove_game_from_wishlist, find_game_by_exact_name,
@@ -123,24 +125,53 @@ def setup_handlers(bot):
                 "TRY": "₺",
                 "KZT": "₸",
                 "PLN": "zł",
-                "CNY": "¥",  # Corrected symbol for Chinese Yuan
+                "CNY": "¥",
                 "USD": "$"
             }
 
             region_name = region_names.get(region_code, "Unknown region")
             currency_symbol = currency_symbols.get(currency, "$")
 
-            bot.answer_callback_query(call.id)
-            bot.send_message(
-                call.message.chat.id,
-                (
-                    f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n\n"
-                    f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n\n"
-                    f"Available games:\n{'\n'.join(available_games) if available_games else 'All games are available.'}\n\n"
-                    f"Free games:\n{'\n'.join(free_games) if free_games else 'No free games.'}\n\n"
-                    f"Upcoming games:\n{'\n'.join(upcoming_games) if upcoming_games else 'No upcoming games.'}\n\n"
-                    f"Unavailable games:\n{'\n'.join(unavailable_games) if unavailable_games else 'All games are available.'}\n\n")
-            )
+            # Create a plot comparing US prices and local prices converted to USD
+            fig, ax = plt.subplots(figsize=(6, 12))  # Set the figure size to be narrow and tall
+            prices = [us_total_price, total_price_usd]
+            labels = ['US Region', region_name]
+            bar_width = 0.6  # Set bar width to be wider
+            bar_positions = range(len(prices))
+
+            bars = ax.bar(bar_positions, prices, color=['blue', 'red'],
+                          width=bar_width)  # Adjust width to make bars wider
+            ax.set_ylabel('Total Price in USD')
+            ax.set_title('Price Comparison of Wishlist Games')
+            ax.set_ylim(0, max(prices) * 1.2)  # Add some space above the highest bar
+            ax.set_xticks(bar_positions)
+            ax.set_xticklabels(labels)
+
+            # Annotate bars with the price values
+            for bar in bars:
+                yval = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width() / 2, yval + 1, f'{yval:.2f}', ha='center', va='bottom',
+                        fontsize=12)
+
+            plt.tight_layout()  # Adjust layout to make sure everything fits without overlapping
+
+            # Save the plot to a BytesIO buffer
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png')
+            buf.seek(0)
+
+            # Send the plot
+            bot.send_photo(call.message.chat.id, buf, caption=(
+                f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n\n"
+                f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n\n"
+                f"Available games:\n{'\n'.join(available_games) if available_games else 'All games are available.'}\n\n"
+                f"Free games:\n{'\n'.join(free_games) if free_games else 'No free games.'}\n\n"
+                f"Upcoming games:\n{'\n'.join(upcoming_games) if upcoming_games else 'No upcoming games.'}\n\n"
+                f"Unavailable games:\n{'\n'.join(unavailable_games) if unavailable_games else 'All games are available.'}\n\n"
+            ))
+
+            plt.close(fig)  # Close the figure to free up memory
+            buf.close()  # Close the buffer
 
     def convert_to_usd(amount, currency):
         usd_rate = exchange_rates.get(currency, 1)
