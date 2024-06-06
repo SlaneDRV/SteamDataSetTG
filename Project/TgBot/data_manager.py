@@ -48,17 +48,17 @@ def find_games_by_name(game_name, database):
     print("Search games by name is done.")
     return sorted_results[:10]
 
-def find_games_by_category(category, database):
-    print("Search games by category has been started.")
+def find_games_by_tag(tag, database):
+    print("Search games by tag has been started.")
     results = {}
     for game_id, game_data in database.items():
         if isinstance(game_data.get("TopTags"), list):
             top_tags = game_data["TopTags"]
-            if any(category.lower() in tag.lower() for tag in top_tags):
+            if any(tag.lower() in tag.lower() for tag in top_tags):
                 total_reviews = game_data["PositiveReviews"] + game_data["NegativeReviews"]
                 results[game_id] = (game_data, total_reviews)
     sorted_results = sorted(results.items(), key=lambda x: x[1][1], reverse=True)
-    print("Search games by category is done.")
+    print("Search games by tag is done.")
     return sorted_results[:20]
 
 # Function to find a game by exact name
