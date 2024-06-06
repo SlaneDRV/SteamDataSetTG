@@ -582,8 +582,8 @@ def setup_handlers(bot):
 
             languages_text = (
                 f"<b>Available Languages for {game['Name']}:</b>\n\n"
-                f"<b>Subtitles:</b> {', '.join(languages_sub) if languages_sub else 'No subtitles available.'}\n"
-                f"<b>Audio:</b> {', '.join(languages_audio) if languages_audio else 'No audio available.'}"
+                f"<b>Subtitles:</b>\n{'\n'.join(languages_sub) if languages_sub else 'No subtitles available.'}\n\n"
+                f"<b>Audio:</b>\n{'\n'.join(languages_audio) if languages_audio else 'No audio available.'}"
             )
 
             bot.send_message(call.message.chat.id, languages_text, parse_mode='HTML')
