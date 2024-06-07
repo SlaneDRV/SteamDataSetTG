@@ -229,12 +229,15 @@ def setup_handlers(bot):
 
             # Send the plot
             bot.send_photo(call.message.chat.id, buf, caption=(
-                f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n\n"
-                f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n\n"
-                f"Available games:\n{'\n'.join(available_games) if available_games else 'All games are available.'}\n\n"
-                f"Free games:\n{'\n'.join(free_games) if free_games else 'No free games.'}\n\n"
-                f"Upcoming games:\n{'\n'.join(upcoming_games) if upcoming_games else 'No upcoming games.'}\n\n"
-                f"Unavailable games:\n{'\n'.join(unavailable_games) if unavailable_games else 'All games are available.'}\n\n"
+                f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n"
+                f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n"
+                "Available games:\n" + '\n'.join(available_games) if available_games else "All games are available.\n"
+                                                                                          "Free games:\n" + '\n'.join(
+                    free_games) if free_games else "No free games.\n"
+                                                   "Upcoming games:\n" + '\n'.join(
+                    upcoming_games) if upcoming_games else "No upcoming games.\n"
+                                                           "Unavailable games:\n" + '\n'.join(
+                    unavailable_games) if unavailable_games else "All games are available.\n"
             ))
 
             plt.close(fig)  # Close the figure to free up memory
@@ -581,9 +584,11 @@ def setup_handlers(bot):
             languages_audio = game.get('LanguagesAudio', [])
 
             languages_text = (
-                f"<b>Available Languages for {game['Name']}:</b>\n\n"
-                f"<b>Subtitles:</b>\n{'\n'.join(languages_sub) if languages_sub else 'No subtitles available.'}\n\n"
-                f"<b>Audio:</b>\n{'\n'.join(languages_audio) if languages_audio else 'No audio available.'}"
+                    f"<b>Available Languages for {game['Name']}:</b>\n\n"
+                    "<b>Subtitles:</b>\n" + (
+                        '\n'.join(languages_sub) if languages_sub else 'No subtitles available.') + "\n\n"
+                                                                                                    "<b>Audio:</b>\n" + (
+                        '\n'.join(languages_audio) if languages_audio else 'No audio available.')
             )
 
             bot.send_message(call.message.chat.id, languages_text, parse_mode='HTML')
