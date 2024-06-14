@@ -18,7 +18,8 @@ from data_manager import (
     read_database, find_games_by_tag, format_game_list, find_games_by_name, save_wishlist,
     read_wishlist, add_game_to_wishlist, remove_game_from_wishlist, find_game_by_exact_name,
     check_wishlist, get_wishlist_count, generate_wishlist_file_txt, generate_wishlist_file_json,
-    generate_wishlist_file_yaml, read_json_wishlist, get_wishlist_path, read_wishlist, preload_database
+    generate_wishlist_file_yaml, read_json_wishlist, get_wishlist_path, read_wishlist, preload_database,
+    find_game_by_exact_id, read_wishlist_file, merge_wishlists, update_wishlist, read_yaml_file, read_txt_file
 )
 
 exchange_rates = {
@@ -105,13 +106,20 @@ def setup_handlers(bot):
             tag_counter = Counter()
             tag_to_games = {}
 
-            for game in wishlist:
-                tags = game.get('TopTags', [])
-                for tag in tags:
-                    if tag not in tag_to_games:
-                        tag_to_games[tag] = []
-                    tag_to_games[tag].append(game['Name'])
-                tag_counter.update(tags)
+            # Собрать ID игр из wishlist
+            game_ids = [game['ID'] for game in wishlist]
+
+            # Для каждого ID найти данные игры и обработать теги
+            for game_id in game_ids:
+                games = find_game_by_exact_id(game_id, read_database())
+                if games:
+                    game = games[0]  # Предполагаем, что функция возвращает список, берем первый элемент
+                    tags = game.get('TopTags', [])
+                    for tag in tags:
+                        if tag not in tag_to_games:
+                            tag_to_games[tag] = []
+                        tag_to_games[tag].append(game['Name'])
+                    tag_counter.update(tags)
 
             # Draw the tag distribution chart
             fig, ax = plt.subplots(figsize=(12, 8))  # Increase the figure size for better readability
@@ -172,7 +180,15 @@ def setup_handlers(bot):
             region_code = call.data.split('_')[1]
             user_id = call.message.chat.id
             wishlist = read_wishlist(user_id)
-            game_info = [(game['ID'], game['Name'], game['Price'], game['ReleaseDate']) for game in wishlist]
+
+            game_ids = [game['ID'] for game in wishlist]
+
+            game_info = []
+            for game_id in game_ids:
+                games = find_game_by_exact_id(game_id, read_database())
+                if games:
+                    game = games[0]  # Предполагаем, что функция возвращает список, берем первый элемент
+                    game_info.append((game['ID'], game['Name'], game['Price'], game.get('ReleaseDate')))
             total_price, currency, available_games, unavailable_games, free_games, upcoming_games = calculate_regional_prices(
                 game_info, region_code)
             us_total_price = calculate_us_prices(game_info, unavailable_games)
@@ -229,15 +245,12 @@ def setup_handlers(bot):
 
             # Send the plot
             bot.send_photo(call.message.chat.id, buf, caption=(
-                f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n"
-                f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n"
-                "Available games:\n" + '\n'.join(available_games) if available_games else "All games are available.\n"
-                                                                                          "Free games:\n" + '\n'.join(
-                    free_games) if free_games else "No free games.\n"
-                                                   "Upcoming games:\n" + '\n'.join(
-                    upcoming_games) if upcoming_games else "No upcoming games.\n"
-                                                           "Unavailable games:\n" + '\n'.join(
-                    unavailable_games) if unavailable_games else "All games are available.\n"
+                f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n\n"
+                f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n\n"
+                f"Available games:\n{'\n'.join(available_games) if available_games else 'All games are available.'}\n\n"
+                f"Free games:\n{'\n'.join(free_games) if free_games else 'No free games.'}\n\n"
+                f"Upcoming games:\n{'\n'.join(upcoming_games) if upcoming_games else 'No upcoming games.'}\n\n"
+                f"Unavailable games:\n{'\n'.join(unavailable_games) if unavailable_games else 'All games are available.'}\n\n"
             ))
 
             plt.close(fig)  # Close the figure to free up memory
@@ -584,11 +597,9 @@ def setup_handlers(bot):
             languages_audio = game.get('LanguagesAudio', [])
 
             languages_text = (
-                    f"<b>Available Languages for {game['Name']}:</b>\n\n"
-                    "<b>Subtitles:</b>\n" + (
-                        '\n'.join(languages_sub) if languages_sub else 'No subtitles available.') + "\n\n"
-                                                                                                    "<b>Audio:</b>\n" + (
-                        '\n'.join(languages_audio) if languages_audio else 'No audio available.')
+                f"<b>Available Languages for {game['Name']}:</b>\n\n"
+                f"<b>Subtitles:</b>\n{'\n'.join(languages_sub) if languages_sub else 'No subtitles available.'}\n\n"
+                f"<b>Audio:</b>\n{'\n'.join(languages_audio) if languages_audio else 'No audio available.'}"
             )
 
             bot.send_message(call.message.chat.id, languages_text, parse_mode='HTML')
@@ -628,12 +639,18 @@ def setup_handlers(bot):
 
         if games:  # Проверяем, что данные игры доступны
             game_data = games[0][0]  # Extract game data from tuple
-            add_game_to_wishlist(call.message.chat.id, game_data)
+            game_data_end = {
+                'ID': game_data['ID'],
+                'Name': game_data['Name'],
+                'Price': game_data['Price']
+            }
+            add_game_to_wishlist(call.message.chat.id, game_data_end)
             bot.edit_message_text(f"{game_data['Name']} added to your wishlist.", call.message.chat.id,call.message.message_id)
 
 
         else:
             bot.answer_callback_query(call.id, "Game not found in database.")
+
 
     @bot.message_handler(func=lambda message: message.text == "Remove Game from Wishlist")
     def prompt_for_game_removal(message):
@@ -684,49 +701,35 @@ def setup_handlers(bot):
 
         os.remove(filename)  # Удаляем файл после отправки
 
-
-
     @bot.message_handler(func=lambda message: message.text == "Import Wishlist")
     def import_wishlist(message):
         user_id = message.chat.id
         msg = bot.send_message(user_id, "Please send the wishlist file.")
+
         bot.register_next_step_handler(msg, process_import_file)
 
     def process_import_file(message):
         user_id = message.chat.id
         try:
+            file_info = bot.get_file(message.document.file_id)
+            downloaded_file = bot.download_file(file_info.file_path)
 
-            if message.document:
-                file_info = bot.get_file(message.document.file_id)
-                downloaded_file = bot.download_file(file_info.file_path)
+            # Определение формата файла по расширению
+            file_extension = message.document.file_name.split('.')[-1].lower()
 
-                # Сохранение файла для последующей обработки
-                file_path = get_wishlist_path(user_id)
-                with open(file_path, 'wb') as new_file:
-                    new_file.write(downloaded_file)
-                print("File downloaded and saved.")
-
-                """
-                # Чтение и обработка файла вишлиста
-                wishlist_data = read_wishlist(user_id)
-                if wishlist_data:
-                    print("Wishlist data loaded successfully.")
-                    for game in wishlist_data:
-                        game_name = game.get('Name', '')
-                        if game_name:
-                            add_game_to_wishlist_by_name(user_id, game_name)
-                        else:
-                            print("Game name not found in the wishlist entry.")
-                    bot.send_message(user_id, "Wishlist imported and updated successfully.")
-                else:
-                    bot.send_message(user_id, "Failed to read the JSON wishlist file.")
-                    print("Failed to read the JSON wishlist file.")
-                    """
-
-
+            # Обработка импорта в зависимости от формата файла
+            if file_extension == 'txt':
+                imported_data = read_txt_file(downloaded_file)
+            elif file_extension == 'yaml' or file_extension == 'yml':
+                imported_data = read_yaml_file(downloaded_file)
             else:
-                bot.send_message(user_id, "Please send a valid document file.")
-                print("No document file received.")
+                bot.send_message(user_id, "Unsupported file format. Please upload a txt or yaml file.")
+                return
+
+            # Обновление вишлиста
+            update_wishlist(user_id, imported_data)
+
+            bot.send_message(user_id, "Wishlist imported and updated successfully.")
 
         except Exception as e:
             bot.send_message(user_id, f"An error occurred: {str(e)}")
