@@ -4,6 +4,15 @@ from difflib import SequenceMatcher
 import asyncio
 import yaml
 
+
+TGBOT_DIR = 'TgBot'
+STEAMAPI_DIR = 'SteamAPI'
+JSON_DIR = 'JSON'
+DETAILED_GAMES_FILE = 'detailed_games_transformed.json'
+
+def get_detailed_games_path():
+    return os.path.join(TGBOT_DIR, STEAMAPI_DIR, JSON_DIR, DETAILED_GAMES_FILE)
+
 # Global variable for database storage
 DATABASE = None
 
@@ -11,13 +20,14 @@ DATABASE = None
 async def preload_database():
     global DATABASE
     try:
-        with open("SteamAPI/JSON/detailed_games_transformed.json", 'r', encoding='utf-8') as f:
+        with open(get_detailed_games_path(), 'r', encoding='utf-8') as f:
             DATABASE = json.load(f)
             print("Database preloaded successfully.")
     except FileNotFoundError:
         print("JSON database file not found.")
     except json.JSONDecodeError as e:
         print("Error decoding JSON data:", e)
+
 
 # Call the preload function on bot startup
 asyncio.run(preload_database())

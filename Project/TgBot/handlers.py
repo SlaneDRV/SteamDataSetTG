@@ -247,11 +247,12 @@ def setup_handlers(bot):
             bot.send_photo(call.message.chat.id, buf, caption=(
                 f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n\n"
                 f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n\n"
-                f"Available games:\n{'\n'.join(available_games) if available_games else 'All games are available.'}\n\n"
-                f"Free games:\n{'\n'.join(free_games) if free_games else 'No free games.'}\n\n"
-                f"Upcoming games:\n{'\n'.join(upcoming_games) if upcoming_games else 'No upcoming games.'}\n\n"
-                f"Unavailable games:\n{'\n'.join(unavailable_games) if unavailable_games else 'All games are available.'}\n\n"
-            ))
+                f"Available games:\n{('\n'.join(available_games)) if available_games else 'All games are available.'}\n\n"
+                f"Free games:\n{('\n'.join(free_games)) if free_games else 'No free games.'}\n\n"
+                f"Upcoming games:\n{('\n'.join(upcoming_games)) if upcoming_games else 'No upcoming games.'}\n\n"
+                f"Unavailable games:\n{('\n'.join(unavailable_games)) if unavailable_games else 'All games are available.'}\n\n"
+                ))
+
 
             plt.close(fig)  # Close the figure to free up memory
             buf.close()  # Close the buffer
@@ -734,3 +735,9 @@ def setup_handlers(bot):
         except Exception as e:
             bot.send_message(user_id, f"An error occurred: {str(e)}")
             print(f"An error occurred: {str(e)}")
+
+
+
+
+
+
