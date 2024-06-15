@@ -1,25 +1,24 @@
 import asyncio
 import json
+import subprocess
 from collections import Counter
 from datetime import datetime
 
 import requests
 from telebot import types
 import os
-import re
 import matplotlib.pyplot as plt
 import io
 
-from SteamAPI.GetGameByID import create_session_with_retries
-from SteamAPI.SteamAPI import process_game
+from SteamAPI import create_session_with_retries
+from TgBot.SteamAPI import process_game
 from TgBot import config
 from TgBot.config import TgID
 from data_manager import (
-    read_database, find_games_by_tag, format_game_list, find_games_by_name, save_wishlist,
-    read_wishlist, add_game_to_wishlist, remove_game_from_wishlist, find_game_by_exact_name,
+    read_database, find_games_by_tag, find_games_by_name, add_game_to_wishlist, remove_game_from_wishlist, find_game_by_exact_name,
     check_wishlist, get_wishlist_count, generate_wishlist_file_txt, generate_wishlist_file_json,
-    generate_wishlist_file_yaml, read_json_wishlist, get_wishlist_path, read_wishlist, preload_database,
-    find_game_by_exact_id, read_wishlist_file, merge_wishlists, update_wishlist, read_yaml_file, read_txt_file
+    generate_wishlist_file_yaml, read_wishlist, preload_database,
+    find_game_by_exact_id, update_wishlist, read_yaml_file, read_txt_file
 )
 
 exchange_rates = {
@@ -46,7 +45,28 @@ def setup_handlers(bot):
         itembtn1 = types.KeyboardButton('Find a New Game')
         itembtn2 = types.KeyboardButton('Wishlist')
         markup.add(itembtn1, itembtn2)
+        # Условие видимости кнопки только для вашего Telegram ID
+        if message.chat.id == config.TgID:
+            steam_api_btn = types.KeyboardButton('Run SteamAPI')
+            markup.add(steam_api_btn)
         bot.send_message(message.chat.id, "Welcome! Choose an option:", reply_markup=markup)
+
+
+
+    @bot.message_handler(func=lambda message: message.text == 'Run SteamAPI')
+    def run_steam_api(message):
+        if message.chat.id == config.TgID:
+            bot.send_message(message.chat.id, "Starting SteamAPI process...")
+            # Запуск внешнего скрипта и отправка сообщений о прогрессе
+            process = subprocess.Popen(['../.venv/Scripts/python.exe', 'SteamAPI.py'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True, bufsize=1, encoding='utf-8', errors='ignore')
+            for line in iter(process.stdout.readline, ''):
+                clean_line = line.strip()
+                if clean_line:  # Проверяем, не пустая ли строка
+                    bot.send_message(message.chat.id, clean_line)
+            process.stdout.close()
+            process.wait()
+            bot.send_message(message.chat.id, "SteamAPI process completed!")
 
     @bot.message_handler(func=lambda message: message.text == "Find a New Game")
     def find_new_game(message):
@@ -391,7 +411,7 @@ def setup_handlers(bot):
                 )
 
                 # Add update button if user_id matches your user_id
-                if call.message.chat.id == TgID:  # Replace YOUR_USER_ID with your actual user ID
+                if call.message.chat.id == TgID:
                     markup_inline.add(types.InlineKeyboardButton(f"Update game info",
                                                                  callback_data=f"update_{game_info['ID']}"))
 

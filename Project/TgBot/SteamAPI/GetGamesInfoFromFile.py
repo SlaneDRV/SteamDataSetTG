@@ -42,8 +42,8 @@ def analyze_games(file_path, specific_tag):
 
 
 # Paths to JSON files with game information
-detailed_file_path = 'JSON/detailed_games_actual.json'
-invalid_file_path = 'JSON/invalid_games_actual.json'
+detailed_file_path = '../JSON/detailed_games_actual.json'
+invalid_file_path = '../JSON/invalid_games_actual.json'
 
 # Analyze detailed and invalid games separately
 detailed_result = analyze_games(detailed_file_path, "rogue")

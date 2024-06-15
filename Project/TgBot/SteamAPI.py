@@ -278,6 +278,10 @@ def process_game(appid, session, api_key):
 
 
 def main(api_key):
+    if os.path.exists("detailed_steam_games.json"):
+        os.remove("detailed_steam_games.json")
+    if os.path.exists("invalid_games.json"):
+        os.remove("invalid_games.json")
     existing_ids = load_existing_game_ids()
     all_games = get_all_games()
     steam_game_ids = set(int(game['appid']) for game in all_games)
