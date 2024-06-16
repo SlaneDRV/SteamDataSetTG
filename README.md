@@ -28,4 +28,4 @@ To dockerize your Telegram bot for deployment, navigate to the project directory
 ### Sources of Used Data:
 - Steam Web API: https://developer.valvesoftware.com/wiki/Steam_Web_API
 - Link to json files: https://drive.google.com/drive/folders/1aG1_BkECnypXUDVRk91XYxi7HSUXs3f1?usp=sharing
-- Telegram Bot token: https://youtu.be/aNmRNjME6mE?si=ViYQa2Tq7IIO1m_C
+- Telegram Bot token: https://core.telegram.org/bots/tutorial#obtain-your-bot-token
