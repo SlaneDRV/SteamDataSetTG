@@ -3,6 +3,7 @@ import os
 from difflib import SequenceMatcher
 import asyncio
 import yaml
+import datetime
 
 # Global variable to store the database
 DATABASE = None
@@ -31,6 +32,48 @@ def read_database():
     else:
         print("Connected to JSON database successfully.")
         return DATABASE
+
+
+def parse_release_date(date_str):
+    try:
+        return datetime.datetime.strptime(date_str, "%b %d, %Y")
+    except ValueError:
+        try:
+            return datetime.datetime.strptime(date_str, "%Y")
+        except ValueError:
+            return None
+
+
+def sort_wishlist_by_date(wishlist, database):
+    sorted_wishlist = []
+    for game in wishlist:
+        game_id = game.get('ID')
+        if game_id:
+            db_game = find_game_by_exact_id(game_id, database)
+            if db_game:
+                release_date = db_game[0].get('ReleaseDate')
+                parsed_date = parse_release_date(release_date)
+                if parsed_date:
+                    sorted_wishlist.append((game, parsed_date))
+
+    sorted_wishlist.sort(key=lambda x: x[1], reverse=True)
+    return [game for game, date in sorted_wishlist]
+
+
+def sort_wishlist_by_reviews(wishlist, database):
+    sorted_wishlist = []
+    for game in wishlist:
+        game_id = game.get('ID')
+        if game_id:
+            db_game = find_game_by_exact_id(game_id, database)
+            if db_game:
+                positive_reviews = db_game[0].get('PositiveReviews', 0)
+                negative_reviews = db_game[0].get('NegativeReviews', 0)
+                total_reviews = positive_reviews + negative_reviews
+                sorted_wishlist.append((game, total_reviews))
+
+    sorted_wishlist.sort(key=lambda x: x[1], reverse=True)
+    return [game for game, reviews in sorted_wishlist]
 
 # Function to find games by name
 def find_games_by_name(game_name, database):

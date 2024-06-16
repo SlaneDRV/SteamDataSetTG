@@ -5,21 +5,11 @@ import requests
 from telebot import TeleBot, types
 from config import TgID, SteamKey
 from data_manager import (
-    read_wishlist,
-    add_game_to_wishlist,
-    remove_game_from_wishlist,
-    generate_wishlist_file_txt,
-    generate_wishlist_file_json,
-    generate_wishlist_file_yaml,
-    read_txt_file,
-    read_yaml_file,
-    update_wishlist,
-    read_database,
-    preload_database,
-    check_wishlist,
-    find_games_by_name,
-    find_games_by_tag,
-    find_game_by_exact_name
+    find_game_by_exact_id, read_database, find_games_by_tag, format_game_list, find_games_by_name, read_txt_file, read_yaml_file, save_wishlist,
+    read_wishlist, add_game_to_wishlist, remove_game_from_wishlist, find_game_by_exact_name,
+    check_wishlist, get_wishlist_count, generate_wishlist_file_txt, generate_wishlist_file_json,
+    generate_wishlist_file_yaml, read_json_wishlist, get_wishlist_path, read_wishlist, preload_database,
+    sort_wishlist_by_date, update_wishlist, sort_wishlist_by_reviews
 )
 
 exchange_rates = {
@@ -112,15 +102,95 @@ def setup_handlers(bot):
         itembtn_remove = types.KeyboardButton('Remove Game from Wishlist')
         itembtn_total_price = types.KeyboardButton('Calculate Total Price')
         itembtn_tag_count = types.KeyboardButton('Count Tags')
+        itembtn_sort = types.KeyboardButton('Sort')
         itembtn_back = types.KeyboardButton('Back')
         markup.add(itembtn_total_price, itembtn_tag_count)
         markup.add(itembtn_download, itembtn_import)
-        markup.add(itembtn_remove, itembtn_back)
+        markup.add(itembtn_remove, itembtn_sort, itembtn_back)
 
         wishlist_count = get_wishlist_count(user_id)
 
         bot.send_message(message.chat.id, "Your Wishlist:", reply_markup=markup_inline)
         bot.send_message(message.chat.id, f"You have {wishlist_count} games in your Wishlist.")
+        bot.send_message(message.chat.id, "Choose an option:", reply_markup=markup)
+
+    @bot.message_handler(func=lambda message: message.text == "Sort")
+    def handle_sort(message):
+        markup = types.ReplyKeyboardMarkup(row_width=3, resize_keyboard=True)
+        itembtn_sort_alphabet = types.KeyboardButton('Sort by alhpabet')
+        itembtn_sort_date = types.KeyboardButton('Sort by date')
+        itembtn_sort_reviews = types.KeyboardButton('Sort by reviews')
+        itembtn_back = types.KeyboardButton('Back')
+        markup.add(itembtn_sort_reviews, itembtn_sort_date, itembtn_sort_alphabet)
+        markup.add(itembtn_back)
+
+        bot.send_message(message.chat.id, "Sort Wishlist by:", reply_markup=markup)
+
+    @bot.message_handler(func=lambda message: message.text == "Sort by date")
+    def sort_wishlist_by_date_handler(message):
+        user_id = message.chat.id
+        database = read_database()
+
+        wishlist = read_wishlist(user_id)
+
+        sorted_wishlist = sort_wishlist_by_date(wishlist, database)
+        markup_inline = types.InlineKeyboardMarkup(row_width=2)
+        for game in sorted_wishlist:
+            price = f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
+            markup_inline.add(
+                types.InlineKeyboardButton(f"{game['Name']} - {price}", callback_data=f"wishlist_{game['Name']}"))
+
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        itembtn_sort = types.KeyboardButton('Sort')
+        itembtn_view = types.KeyboardButton('View Wishlist')
+        itembtn_back = types.KeyboardButton('Back')
+        markup.add(itembtn_view, itembtn_sort, itembtn_back)
+
+        bot.send_message(message.chat.id, "Sorted Wishlist by Release date:", reply_markup=markup_inline)
+        bot.send_message(message.chat.id, "Choose an option:", reply_markup=markup)
+
+    @bot.message_handler(func=lambda message: message.text == "Sort by reviews")
+    def sort_wishlist_by_reviews_handler(message):
+        user_id = message.from_user.id
+        database = read_database()
+
+        wishlist = read_wishlist(user_id)
+
+        sorted_wishlist = sort_wishlist_by_reviews(wishlist, database)
+        markup_inline = types.InlineKeyboardMarkup(row_width=2)
+        for game in sorted_wishlist:
+            price = f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
+            markup_inline.add(
+                types.InlineKeyboardButton(f"{game['Name']} - {price}", callback_data=f"wishlist_{game['Name']}"))
+
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        itembtn_sort = types.KeyboardButton('Sort')
+        itembtn_view = types.KeyboardButton('View Wishlist')
+        itembtn_back = types.KeyboardButton('Back')
+        markup.add(itembtn_view, itembtn_sort, itembtn_back)
+
+        bot.send_message(message.chat.id, "Sorted Wishlist by Total Reviews:", reply_markup=markup_inline)
+        bot.send_message(message.chat.id, "Choose an option:", reply_markup=markup)
+
+    @bot.message_handler(func=lambda message: message.text == "Sort by alhpabet")
+    def sort_wishlist_by_alphabet(message):
+        user_id = message.chat.id
+        wishlist = read_wishlist(user_id)
+        sorted_wishlist = sorted(wishlist, key=lambda x: x.get('Name', '').lower())  # Sort by 'Name' alphabetically
+
+        markup_inline = types.InlineKeyboardMarkup(row_width=2)
+        for game in sorted_wishlist:
+            price = f"{game['Price']}" if game['Price'] != 0.0 else 'Free'
+            markup_inline.add(
+                types.InlineKeyboardButton(f"{game['Name']} - {price}", callback_data=f"wishlist_{game['Name']}"))
+
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        itembtn_sort = types.KeyboardButton('Sort')
+        itembtn_view = types.KeyboardButton('View Wishlist')
+        itembtn_back = types.KeyboardButton('Back')
+        markup.add(itembtn_view, itembtn_sort, itembtn_back)
+
+        bot.send_message(message.chat.id, "Sorted Wishlist by alphabet:", reply_markup=markup_inline)
         bot.send_message(message.chat.id, "Choose an option:", reply_markup=markup)
 
         # Handler for "Count Tags" button, calculates and displays top 10 tags in the wishlist
