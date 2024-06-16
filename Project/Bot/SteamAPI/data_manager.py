@@ -6,8 +6,8 @@ import yaml
 
 
 # Global variable for database storage
-TGBOT_DIR = 'TgBot'
-STEAMAPI_DIR = 'SteamAPI'
+TGBOT_DIR = 'Bot'
+STEAMAPI_DIR = ''
 JSON_DIR = 'JSON'
 DETAILED_GAMES_FILE = 'detailed_games_transformed.json'
 

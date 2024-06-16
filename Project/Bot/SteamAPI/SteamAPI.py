@@ -2,7 +2,7 @@ import html
 import os
 import time
 from pathlib import Path
-from TgBot import config
+from Bot.TelegramBot import config
 
 import requests
 import json

@@ -1,0 +1,4 @@
+# Файл для хранения конфигураций
+TOKEN = '7169861969:AAG4g7Wba_pl-zlksDs_14N3me3XWk6LoCE'
+SteamKey = 'D350BB8AC6A45C05FA8B4EF538CEAE64'
+TgID = 710194927
