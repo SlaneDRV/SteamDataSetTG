@@ -14,6 +14,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
+# Save invalid game data to JSON file
 def save_invalid_game(appid):
     json_file_path = "invalid_games.json"
     game_info = {
@@ -29,6 +30,8 @@ def save_invalid_game(appid):
     with open(json_file_path, 'w', encoding='utf-8') as file:
         json.dump(data, file, indent=4, ensure_ascii=False)
 
+
+# Check if the game data is complete
 def is_data_complete(details):
     developers = details.get('developers', [])
     publishers = details.get('publishers', [])
@@ -36,6 +39,8 @@ def is_data_complete(details):
     has_publishers = any(pub for pub in publishers if pub and pub != "Unknown")
     return has_developers and has_publishers
 
+
+# Create a session with retry logic for requests
 def create_session_with_retries():
     session = requests.Session()
     retry = Retry(
@@ -49,6 +54,8 @@ def create_session_with_retries():
     session.mount("https://", adapter)
     return session
 
+
+# Load existing game IDs from JSON files
 def load_existing_game_ids():
     def load_ids_from_file(json_file_path):
         try:
@@ -63,6 +70,8 @@ def load_existing_game_ids():
     combined_ids = valid_ids.union(invalid_ids)
     return combined_ids
 
+
+# Parse supported languages from HTML
 def parse_supported_languages(languages_html):
     languages_html = re.sub(r'<br><strong>\*</strong>languages with full audio support', '', languages_html)
     languages_html = re.sub(r'<[^>]*>', '', languages_html)
@@ -75,27 +84,33 @@ def parse_supported_languages(languages_html):
         "Subtitles": subtitles if subtitles else ["Not available"]
     }
 
+
+# Fetch game data from SteamSpy
 def get_game_data_from_steamspy(appid):
     url = f"https://steamspy.com/api.php?request=appdetails&appid={appid}"
     response = requests.get(url)
     data = response.json()
     return data
 
+
+# Fetch all games from Steam API
 def get_all_games():
     response = requests.get("http://api.steampowered.com/ISteamApps/GetAppList/v2")
     games = response.json()['applist']['apps']
     return games
 
+
+# Fetch game details from Steam API with retry logic
 def fetch_game_details_from_steam(appid, session, api_key, country='US'):
     url = f"http://store.steampowered.com/api/appdetails?appids={appid}&cc={country}&key={api_key}"
     while True:
         try:
             response = session.get(url)
             response.raise_for_status()
-            if not response.content:  # Check if the response is empty
+            if not response.content:
                 print(f"Empty response for appid {appid}")
-                return None  # Skip processing this game
-            cleaned_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', response.text)  # Remove control characters
+                return None
+            cleaned_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', response.text)
             return json.loads(cleaned_content)
         except requests.exceptions.HTTPError as err:
             if response.status_code == 429:
@@ -108,7 +123,7 @@ def fetch_game_details_from_steam(appid, session, api_key, country='US'):
             return None
 
 
-
+# Get top tags for a game from SteamSpy
 def get_top_tags_for_game(appid):
     data = get_game_data_from_steamspy(appid)
     tags = data.get('tags', {})
@@ -118,6 +133,8 @@ def get_top_tags_for_game(appid):
         return [tag for tag, count in top_tags]
     return ["No tags found"]
 
+
+# Save game details to JSON file
 def save_games_details(game_info, file_path):
     json_file_path = file_path
     if file_path == "invalid_games.json":
@@ -139,6 +156,8 @@ def save_games_details(game_info, file_path):
     with open(json_file_path, 'w', encoding='utf-8') as file:
         json.dump(data, file, indent=4, ensure_ascii=False)
 
+
+# Load data from a JSON file
 def load_json_file(file_path):
     try:
         if os.path.getsize(file_path) == 0:
@@ -150,6 +169,8 @@ def load_json_file(file_path):
     except json.JSONDecodeError:
         return None
 
+
+# Save data to a JSON file
 def save_json_file(data, file_path):
     try:
         with open(file_path, 'w', encoding='utf-8') as file:
@@ -157,6 +178,8 @@ def save_json_file(data, file_path):
     except IOError:
         print(f"Error: Could not write to file - {file_path}")
 
+
+# Merge two JSON files and save the combined data
 def merge_json_files(file_path1, file_path2, output_file_path):
     data1 = load_json_file(file_path1)
     data2 = load_json_file(file_path2)
@@ -172,6 +195,8 @@ def merge_json_files(file_path1, file_path2, output_file_path):
     except OSError as e:
         print(f"Error: {file_path2} : {e.strerror}")
 
+
+# Check for duplicates and incomplete entries in the data
 def check_for_duplicates_and_completeness(data, file_name):
     seen_ids = set()
     duplicates = set()
@@ -199,6 +224,8 @@ def check_for_duplicates_and_completeness(data, file_name):
 
     return duplicates, incomplete_entries
 
+
+# Remove duplicate entries from the data
 def remove_duplicates(data):
     unique_data = {}
     for item in data:
@@ -207,6 +234,8 @@ def remove_duplicates(data):
             unique_data[item_id] = item
     return list(unique_data.values())
 
+
+# Transform JSON data structure
 def transform_json(input_file_path, output_file_path):
     try:
         with open(input_file_path, 'r', encoding='utf-8') as file:
@@ -223,6 +252,8 @@ def transform_json(input_file_path, output_file_path):
     except Exception as e:
         print(f"An error occurred: {str(e)}")
 
+
+# Process a single game by fetching and saving its details
 def process_game(appid, session, api_key):
     try:
         steam_data = fetch_game_details_from_steam(appid, session, api_key)
@@ -260,11 +291,14 @@ def process_game(appid, session, api_key):
             "NegativeReviews": steamspy_data.get("negative", 0),
             "DayPeak": steamspy_data.get("ccu", 0),
             "TopTags": top_tags,
-            "LanguagesSub": parse_supported_languages(steam_details.get('supported_languages', 'Not available'))["Subtitles"],
-            "LanguagesAudio": parse_supported_languages(steam_details.get('supported_languages', 'Not available'))["Full Audio"],
+            "LanguagesSub": parse_supported_languages(steam_details.get('supported_languages', 'Not available'))[
+                "Subtitles"],
+            "LanguagesAudio": parse_supported_languages(steam_details.get('supported_languages', 'Not available'))[
+                "Full Audio"],
             "ShortDesc": steam_details.get('short_description', 'No description available'),
             "ReleaseDate": steam_details.get('release_date', {}).get('date', 'Unknown'),
-            "Platforms": ', '.join(platform for platform, available in steam_details.get('platforms', {}).items() if available),
+            "Platforms": ', '.join(
+                platform for platform, available in steam_details.get('platforms', {}).items() if available),
         }
         if is_data_complete(steam_details):
             save_games_details(game_info, "detailed_steam_games.json")
@@ -277,23 +311,25 @@ def process_game(appid, session, api_key):
         return None
 
 
+# Main function to process new games and update JSON files
 def main(api_key):
+    # Remove old JSON files if they exist
     if os.path.exists("detailed_steam_games.json"):
         os.remove("detailed_steam_games.json")
     if os.path.exists("invalid_games.json"):
         os.remove("invalid_games.json")
+
+    # Load existing game IDs to avoid reprocessing
     existing_ids = load_existing_game_ids()
     all_games = get_all_games()
     steam_game_ids = set(int(game['appid']) for game in all_games)
     new_games = list(steam_game_ids - existing_ids)
 
     new_games_count = len(new_games)
-
-    print("Count of new games:",new_games_count)
+    print("Count of new games:", new_games_count)
 
     session = create_session_with_retries()
 
-    # Process games in batches of 100
     batch_size = 100
     for i in range(0, len(new_games), batch_size):
         current_batch = new_games[i:i + batch_size]
@@ -304,7 +340,7 @@ def main(api_key):
             for future in tqdm(as_completed(futures), total=len(futures), desc="Processing new games"):
                 future.result()
 
-        # Merge and check details after each batch
+        # Merge and clean up JSON files after each batch
         merge_json_files("JSON/detailed_games_actual.json", "detailed_steam_games.json",
                          "JSON/detailed_games_actual.json")
         merge_json_files("JSON/invalid_games_actual.json", "invalid_games.json", "JSON/invalid_games_actual.json")
@@ -329,7 +365,7 @@ def main(api_key):
     print("All new games processed.")
 
 
+# Entry point for the script
 if __name__ == "__main__":
     api_key = config.SteamKey
     main(api_key)
-

@@ -1,14 +1,13 @@
-version: '3.8'
 services:
   bot:
     build:
-      context: ../
+      context: ../  # Set the context to the parent directory
       dockerfile: Docker/Dockerfile
     container_name: Steam_Wishlist_Bot
-    restart: always
-    volumes:
+    restart: always  # Always restart the container if it stops
+    volumes:  # Mount host directories as volumes in the container
       - ../TelegramBot:/app/TelegramBot
       - ../SteamAPI:/app/SteamAPI
-    command: python /app/TelegramBot/main.py
+    command: python /app/TelegramBot/main.py  # Command to run the Telegram bot
     environment:
-      - PYTHONUNBUFFERED=1
+      - PYTHONUNBUFFERED=1  # Ensure the output is flushed immediately

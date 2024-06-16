@@ -4,17 +4,10 @@ from difflib import SequenceMatcher
 import asyncio
 import yaml
 
-
-JSON_DIR = 'JSON'
-DETAILED_GAMES_FILE = 'detailed_games_transformed.json'
-
-def get_detailed_games_path():
-    return os.path.join(JSON_DIR, DETAILED_GAMES_FILE)
-
-
+# Global variable to store the database
 DATABASE = None
 
-# Preload the database function
+# Asynchronously preload the database from the JSON file
 async def preload_database():
     global DATABASE
     try:
@@ -26,11 +19,10 @@ async def preload_database():
     except json.JSONDecodeError as e:
         print("Error decoding JSON data:", e)
 
-
-# Call the preload function on bot startup
+# Run the preload_database coroutine to load the database at startup
 asyncio.run(preload_database())
 
-# Function to read the database
+# Function to read the preloaded database
 def read_database():
     global DATABASE
     if DATABASE is None:
@@ -40,7 +32,7 @@ def read_database():
         print("Connected to JSON database successfully.")
         return DATABASE
 
-# Functions to find games by various criteria
+# Function to find games by name
 def find_games_by_name(game_name, database):
     print("Search games by name has been started.")
     results = {}
@@ -56,6 +48,7 @@ def find_games_by_name(game_name, database):
     print("Search games by name is done.")
     return sorted_results[:10]
 
+# Function to find games by tag
 def find_games_by_tag(searchTag, database):
     print("Search games by tag has been started.")
     results = {}
@@ -84,7 +77,7 @@ def find_game_by_exact_name(game_name, database):
     print("Search game by exact name is done.")
     return sorted_results[:1]
 
-# Function to format the game list
+# Function to format a list of games for display
 def format_game_list(games):
     message = ""
     for i, (game_data, total_reviews) in enumerate(games, start=1):
@@ -96,14 +89,16 @@ def format_game_list(games):
                     f"\tPositive: {positive_percentage:.2f}%\n")
     return message
 
-# Wishlist directory management
+# Directory for storing wishlists
 WISHLIST_DIR = '../Wishlists'
 if not os.path.exists(WISHLIST_DIR):
     os.makedirs(WISHLIST_DIR)
 
+# Function to get the path of a user's wishlist
 def get_wishlist_path(user_id):
     return os.path.join(WISHLIST_DIR, f'{user_id}_wishlist.json')
 
+# Function to read a user's wishlist from file
 def read_wishlist(user_id):
     filename = get_wishlist_path(user_id)
     try:
@@ -112,12 +107,14 @@ def read_wishlist(user_id):
     except FileNotFoundError:
         return []
 
+# Function to save a user's wishlist to file
 def save_wishlist(user_id, wishlist):
     filename = get_wishlist_path(user_id)
     with open(filename, 'w', encoding='utf-8') as file:
         print("Save wishlist for user: ", user_id)
         json.dump(wishlist, file, indent=4)
 
+# Function to add a game to a user's wishlist
 def add_game_to_wishlist(user_id, game):
     wishlist = read_wishlist(user_id)
     if game not in wishlist:
@@ -126,18 +123,20 @@ def add_game_to_wishlist(user_id, game):
         print("Add game to wishlist of user: ", user_id)
     return wishlist
 
-
+# Function to check if a game is in a user's wishlist
 def check_wishlist(user_id, game_name):
     wishlist = read_wishlist(user_id)
     for game in wishlist:
         if game['Name'] == game_name:
-            return True  # Game already in wishlist
-    return False  # Game not found in wishlist
+            return True
+    return False
 
+# Function to get the count of games in a user's wishlist
 def get_wishlist_count(user_id):
     wishlist = read_wishlist(user_id)
     return len(wishlist)
 
+# Function to remove a game from a user's wishlist
 def remove_game_from_wishlist(user_id, game_name):
     print("Remove game from wishlist of user: ", user_id)
     wishlist = read_wishlist(user_id)
@@ -145,7 +144,7 @@ def remove_game_from_wishlist(user_id, game_name):
     save_wishlist(user_id, new_wishlist)
     return new_wishlist
 
-# Functions for generating wishlist files
+# Function to generate a wishlist file in text format
 def generate_wishlist_file_txt(user_id):
     wishlist = read_wishlist(user_id)
     filename = f'wishlist_{user_id}.txt'
@@ -155,6 +154,7 @@ def generate_wishlist_file_txt(user_id):
             file.write(f"{game['ID']}: {game['Name']} - {price}\n")
     return filename
 
+# Function to filter wishlist fields for exporting
 def filter_wishlist_fields(wishlist):
     filtered_wishlist = []
     for game in wishlist:
@@ -166,6 +166,7 @@ def filter_wishlist_fields(wishlist):
         filtered_wishlist.append(filtered_game)
     return filtered_wishlist
 
+# Function to generate a wishlist file in JSON format
 def generate_wishlist_file_json(user_id):
     wishlist = read_wishlist(user_id)
     filtered_wishlist = filter_wishlist_fields(wishlist)
@@ -174,6 +175,7 @@ def generate_wishlist_file_json(user_id):
         json.dump(filtered_wishlist, file, ensure_ascii=False, indent=4)
     return filename
 
+# Function to generate a wishlist file in YAML format
 def generate_wishlist_file_yaml(user_id):
     wishlist = read_wishlist(user_id)
     filtered_wishlist = filter_wishlist_fields(wishlist)
@@ -182,45 +184,40 @@ def generate_wishlist_file_yaml(user_id):
         yaml.dump(filtered_wishlist, file, allow_unicode=True)
     return filename
 
+# Function to read a user's wishlist from a JSON file
 def read_json_wishlist(user_id):
     filename = get_wishlist_path(user_id)
     try:
         with open(filename, 'r', encoding='utf-8') as file:
-            # Читаем существующие данные из файла
             existing_data = json.load(file)
     except FileNotFoundError:
-        # Если файл не существует, возвращаем пустой список
         return []
 
-    # Возвращаем существующие данные
     return existing_data
 
+# Function to find a game by exact ID
 def find_game_by_exact_id(game_id, database):
     print("Search game by exact id has been started.")
     results = []
-    search_query = str(game_id).strip()  # Преобразование ID в строку для сравнения
+    search_query = str(game_id).strip()
     for db_game_id, game_data in database.items():
-        db_game_id_str = str(game_data["ID"]).strip()  # Преобразование ID в строку для сравнения
+        db_game_id_str = str(game_data["ID"]).strip()
         if db_game_id_str == search_query:
             results.append(game_data)
     print("Search game by exact id is done.")
     return results[:1]
 
-# В модуле data_manager.py
-
+# Function to import a wishlist from external data
 def import_wishlist(user_id, imported_data):
-    # Читаем существующие данные из вишлиста
     existing_data = read_json_wishlist(user_id)
 
-    # Добавляем импортированные данные к существующим данным
     existing_data.extend(imported_data)
 
-    # Записываем обновленные данные обратно в файл
     filename = get_wishlist_path(user_id)
     with open(filename, 'w', encoding='utf-8') as file:
         json.dump(existing_data, file, ensure_ascii=False, indent=4)
 
-
+# Function to read a wishlist from a file
 def read_wishlist_file(filepath):
     try:
         with open(filepath, 'r', encoding='utf-8') as file:
@@ -230,36 +227,31 @@ def read_wishlist_file(filepath):
     except json.JSONDecodeError as e:
         print(f"Error decoding JSON data from {filepath}: {e}")
         return []
+
+# Function to merge wishlists
 def merge_wishlists(user_id, imported_data):
-    # Читаем существующий вишлист пользователя
     current_wishlist = read_wishlist(user_id)
 
-    # Добавляем импортированные данные к существующему вишлисту
     for game in imported_data:
         if game not in current_wishlist:
             current_wishlist.append(game)
 
-    # Сохраняем обновленный вишлист
     save_wishlist(user_id, current_wishlist)
 
-
+# Function to update a user's wishlist with imported data
 def update_wishlist(user_id, imported_data):
-    # Чтение текущего вишлиста пользователя
     current_wishlist = read_wishlist(user_id)
 
-    # Извлечение ID, Name и Price из импортированных данных и добавление в текущий вишлист
     for game in imported_data:
         game_id = game.get('ID')
         game_name = game.get('Name')
         game_price = game.get('Price')
 
-        # Проверка наличия игры по ID и имени в базе данных
         if game_id and game_name:
             existing_game_by_id = find_game_by_exact_id(game_id, DATABASE)
             existing_game_by_name = find_game_by_exact_name(game_name, DATABASE)
 
             if existing_game_by_id and existing_game_by_name:
-                # Если найдены совпадения по ID и по имени, добавляем игру в вишлист
                 game_info = {
                     'ID': game_id,
                     'Name': game_name,
@@ -268,30 +260,24 @@ def update_wishlist(user_id, imported_data):
                 if game_info not in current_wishlist:
                     current_wishlist.append(game_info)
                 else:
-                    # Выводим сообщение, что игра не найдена в базе данных
                     print(f"Game with ID {game_id} and Name {game_name} exists on the wishlist.")
             else:
-                # Выводим сообщение, что игра не найдена в базе данных
                 print(f"Game with ID {game_id} and Name {game_name} not found in the database.")
         else:
-            # Выводим сообщение, что ID или Name игры отсутствуют
             print(f"Invalid game data received: ID={game_id}, Name={game_name}")
 
-    # Сохранение обновленного вишлиста
     save_wishlist(user_id, current_wishlist)
 
-
+# Function to read a TXT file and parse the wishlist data
 def read_txt_file(file_content):
     imported_data = []
     lines = file_content.decode('utf-8').strip().split('\n')
     for line in lines:
-        # Разделение строки по последнему " - "
         last_dash_index = line.rfind(' - ')
         if last_dash_index != -1:
             id_and_name = line[:last_dash_index]
-            price = line[last_dash_index + 3:]  # +3 чтобы пропустить " - "
+            price = line[last_dash_index + 3:]
 
-            # Извлечение ID
             first_colon_index = id_and_name.find(':')
             if first_colon_index != -1:
                 game_id = id_and_name[:first_colon_index].strip()
@@ -309,7 +295,7 @@ def read_txt_file(file_content):
 
     return imported_data
 
-
+# Function to read a YAML file and parse the wishlist data
 def read_yaml_file(file_content):
     imported_data = yaml.safe_load(file_content)
     return imported_data if imported_data is not None else []
