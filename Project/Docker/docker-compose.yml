@@ -1,7 +1,7 @@
 version: '3'
 services:
   bot:
-    build: ../..
+    build: ..
     container_name: Steam_Wishlist_Bot
     restart: always
     command: python main.py

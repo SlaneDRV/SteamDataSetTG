@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 import io
 
 from SteamAPI import create_session_with_retries
-from Bot.SteamAPI.SteamAPI import process_game
-from Bot.TelegramBot import config
-from Bot.TelegramBot.config import TgID
+from SteamAPI.SteamAPI import process_game
+from TelegramBot import config
+from TelegramBot.config import TgID
 from data_manager import (
     read_database, find_games_by_tag, find_games_by_name, add_game_to_wishlist, remove_game_from_wishlist, find_game_by_exact_name,
     check_wishlist, get_wishlist_count, generate_wishlist_file_txt, generate_wishlist_file_json,
