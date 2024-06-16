@@ -1,35 +1,17 @@
-# Stage 1: Install dependencies
-FROM python:3.12-alpine AS builder
+# Выбор базового образа
+FROM python:3.9-slim
 
-# Set the working directory
+# Установка рабочей директории в контейнере
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache \
-    build-base \
-    && rm -rf /var/cache/apk/*
+# Копирование файлов проекта в контейнер
+COPY . /app
 
-# Copy the requirements file
-COPY requirements.txt .
+# Установка зависимостей Python
+RUN pip install -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Открытие порта 5000 для внешнего мира
+EXPOSE 5000
 
-# Stage 2: Build the final image
-FROM python:3.12-alpine
-
-# Set the working directory
-WORKDIR /app
-
-# Set PYTHONPATH environment variable to include both /app, /app/TgBot, and /app/SteamAPI
-ENV PYTHONPATH=/app:/app/TgBot:/app/SteamAPI
-
-# Copy the installed dependencies from the builder stage
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy the application code
-COPY . .
-
-# Set the command to run the application
+# Запуск вашего бота при старте контейнера
 CMD ["python", "main.py"]
