@@ -3,7 +3,6 @@ import json
 import asyncio
 import requests
 from telebot import TeleBot, types
-from difflib import SequenceMatcher
 from config import TgID, SteamKey
 from data_manager import (
     read_wishlist,
