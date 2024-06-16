@@ -1,11 +1,14 @@
-version: '3'
+version: '3.8'
 services:
   bot:
-    build: ..
+    build:
+      context: ../
+      dockerfile: Docker/Dockerfile
     container_name: Steam_Wishlist_Bot
     restart: always
-    command: python main.py
     volumes:
-      - .:/app
+      - ../TelegramBot:/app/TelegramBot
+      - ../SteamAPI:/app/SteamAPI
+    command: python /app/TelegramBot/main.py
     environment:
       - PYTHONUNBUFFERED=1

@@ -1,35 +1,27 @@
 # Stage 1: Install dependencies
 FROM python:3.12-alpine AS builder
-
-# Set the working directory
-WORKDIR /app
+WORKDIR /build
 
 # Install build dependencies
-RUN apk add --no-cache \
-    build-base \
-    && rm -rf /var/cache/apk/*
+RUN apk add --no-cache build-base
 
-# Copy the requirements file
-COPY ../TelegramBot/requirements.txt .
-
-# Install Python dependencies
+# Copy the requirements file and install Python dependencies
+COPY ./TelegramBot/requirements.txt /build/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Build the final image
 FROM python:3.12-alpine
-
-# Set the working directory
 WORKDIR /app
 
-# Set PYTHONPATH environment variable to include both /app, /app/Bot, and /app/SteamAPI
-ENV PYTHONPATH=/app:/app/TgBot:/app/SteamAPI
+# Set PYTHONPATH environment variable to include the app and its subdirectories
+ENV PYTHONPATH=/app:/app/TelegramBot:/app/SteamAPI
 
 # Copy the installed dependencies from the builder stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy the application code
-COPY .. .
+COPY ./TelegramBot /app/TelegramBot
+COPY ./SteamAPI /app/SteamAPI
 
 # Set the command to run the application
-CMD ["python", "main.py"]
+CMD ["python", "/app/TelegramBot/main.py"]

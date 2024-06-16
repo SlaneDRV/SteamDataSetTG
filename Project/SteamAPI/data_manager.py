@@ -5,14 +5,11 @@ import asyncio
 import yaml
 
 
-# Global variable for database storage
-TGBOT_DIR = 'Bot'
-STEAMAPI_DIR = ''
 JSON_DIR = 'JSON'
 DETAILED_GAMES_FILE = 'detailed_games_transformed.json'
 
 def get_detailed_games_path():
-    return os.path.join(TGBOT_DIR, STEAMAPI_DIR, JSON_DIR, DETAILED_GAMES_FILE)
+    return os.path.join(JSON_DIR, DETAILED_GAMES_FILE)
 
 
 DATABASE = None
@@ -21,7 +18,7 @@ DATABASE = None
 async def preload_database():
     global DATABASE
     try:
-        with open(get_detailed_games_path(), 'r', encoding='utf-8') as f:
+        with open("SteamAPI/JSON/detailed_games_transformed.json", 'r', encoding='utf-8') as f:
             DATABASE = json.load(f)
             print("Database preloaded successfully.")
     except FileNotFoundError:

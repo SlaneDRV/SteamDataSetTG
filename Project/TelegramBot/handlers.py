@@ -10,7 +10,7 @@ import os
 import matplotlib.pyplot as plt
 import io
 
-from SteamAPI import create_session_with_retries
+from SteamAPI.SteamAPI import create_session_with_retries
 from SteamAPI.SteamAPI import process_game
 from TelegramBot import config
 from TelegramBot.config import TgID
@@ -520,7 +520,7 @@ def setup_handlers(bot):
             new_data = json.load(new_data_file)
 
         # Load the existing data from detailed_games_transformed.json
-        transformed_file_path = '../SteamAPI/JSON/detailed_games_transformed.json'
+        transformed_file_path = 'SteamAPI/JSON/detailed_games_transformed.json'
         with open(transformed_file_path, 'r', encoding='utf-8') as transformed_data_file:
             transformed_data = json.load(transformed_data_file)
 
