@@ -1,8 +1,18 @@
 import os
 import json
 import asyncio
+import subprocess
+import sys
+from collections import Counter
+from datetime import datetime
+import io
+import matplotlib.pyplot as plt
+
 import requests
 from telebot import TeleBot, types
+
+from SteamAPI.SteamAPI import process_game, create_session_with_retries
+from TelegramBot import config
 from config import TgID, SteamKey
 from data_manager import (
     find_game_by_exact_id, read_database, find_games_by_tag, format_game_list, find_games_by_name, read_txt_file, read_yaml_file, save_wishlist,
@@ -49,7 +59,7 @@ def setup_handlers(bot):
     def run_steam_api(message):
         if message.chat.id == config.TgID:
             bot.send_message(message.chat.id, "Starting SteamAPI process...")
-            process = subprocess.Popen(['../.venv/Scripts/python.exe', 'SteamAPI.py'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            process = subprocess.Popen([sys.executable, 'SteamAPI/SteamAPI.py'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                    text=True, bufsize=1, encoding='utf-8', errors='ignore')
             for line in iter(process.stdout.readline, ''):
                 clean_line = line.strip()
@@ -96,12 +106,11 @@ def setup_handlers(bot):
                     types.InlineKeyboardButton(f"{game['Name']} - {price}", callback_data=f"wishlist_{game['Name']}"))
 
         markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-        itembtn_view = types.KeyboardButton('View Wishlist')
-        itembtn_import = types.KeyboardButton('Import Wishlist')
-        itembtn_download = types.KeyboardButton('Download Wishlist')
-        itembtn_remove = types.KeyboardButton('Remove Game from Wishlist')
         itembtn_total_price = types.KeyboardButton('Calculate Total Price')
         itembtn_tag_count = types.KeyboardButton('Count Tags')
+        itembtn_download = types.KeyboardButton('Download Wishlist')
+        itembtn_import = types.KeyboardButton('Import Wishlist')
+        itembtn_remove = types.KeyboardButton('Remove Game from Wishlist')
         itembtn_sort = types.KeyboardButton('Sort')
         itembtn_back = types.KeyboardButton('Back')
         markup.add(itembtn_total_price, itembtn_tag_count)
@@ -193,155 +202,146 @@ def setup_handlers(bot):
         bot.send_message(message.chat.id, "Sorted Wishlist by alphabet:", reply_markup=markup_inline)
         bot.send_message(message.chat.id, "Choose an option:", reply_markup=markup)
 
-        # Handler for "Count Tags" button, calculates and displays top 10 tags in the wishlist
-        @bot.message_handler(func=lambda message: message.text == "Count Tags")
-        def handle_tag_count(message):
-            user_id = message.chat.id
-            wishlist = read_wishlist(user_id)
-            tag_counter = Counter()
-            tag_to_games = {}
+     # Handler for "Count Tags" button, calculates and displays top 10 tags in the wishlist
+    @bot.message_handler(func=lambda message: message.text == "Count Tags")
+    def handle_tag_count(message):
+        user_id = message.chat.id
+        wishlist = read_wishlist(user_id)
+        tag_counter = Counter()
+        tag_to_games = {}
+        game_ids = [game['ID'] for game in wishlist]
+        for game_id in game_ids:
+            games = find_game_by_exact_id(game_id, read_database())
+            if games:
+                game = games[0]
+                tags = game.get('TopTags', [])
+                for tag in tags:
+                    if tag not in tag_to_games:
+                        tag_to_games[tag] = []
+                    tag_to_games[tag].append(game['Name'])
+                tag_counter.update(tags)
+        # Plotting the top 10 tags
+        fig, ax = plt.subplots(figsize=(12, 8))
+        tags, counts = zip(*tag_counter.most_common(10))
+        bars = ax.barh(tags, counts, color='skyblue')
+        ax.set_xlabel('Count')
+        ax.set_title('Top 10 Tags in Wishlist Games')
+        ax.invert_yaxis()
+        for bar in bars:
+            width = bar.get_width()
+            ax.text(width + 0.5, bar.get_y() + bar.get_height() / 2, f'{width}', ha='center', va='center',
+                    fontsize=12)
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        tag_list_text = "Top 10 Tags in Wishlist Games\n\n"
+        for tag, count in tag_counter.most_common(10):
+            games = ', '.join(tag_to_games[tag])
+            tag_list_text += f"{tag}: {games}\n\n"
+        MAX_MESSAGE_LENGTH = 4096
+        messages = [tag_list_text[i:i + MAX_MESSAGE_LENGTH] for i in
+                    range(0, len(tag_list_text), MAX_MESSAGE_LENGTH)]
+        bot.send_photo(message.chat.id, buf, caption="Top 10 Tags in Wishlist Games")
+        for msg in messages:
+            bot.send_message(message.chat.id, msg)
+        plt.close(fig)
+        buf.close()
 
-            game_ids = [game['ID'] for game in wishlist]
+    # Handler for "Calculate Total Price" button, displays region options for price calculation
+    @bot.message_handler(func=lambda message: message.text == "Calculate Total Price")
+    def handle_total_price(message):
+        markup = types.InlineKeyboardMarkup()
+        button_ru = types.InlineKeyboardButton("🇷🇺", callback_data="price_ru")
+        button_ua = types.InlineKeyboardButton("🇺🇦", callback_data="price_ua")
+        button_tr = types.InlineKeyboardButton("🇹🇷", callback_data="price_tr")
+        button_kz = types.InlineKeyboardButton("🇰🇿", callback_data="price_kz")
+        button_pl = types.InlineKeyboardButton("🇵🇱", callback_data="price_pl")
+        button_cn = types.InlineKeyboardButton("🇨🇳", callback_data="price_cn")
+        markup.add(button_ru, button_ua, button_tr, button_kz, button_pl, button_cn)
+        bot.send_message(message.chat.id, "Select region:", reply_markup=markup)
 
-            for game_id in game_ids:
-                games = find_game_by_exact_id(game_id, read_database())
-                if games:
-                    game = games[0]
-                    tags = game.get('TopTags', [])
-                    for tag in tags:
-                        if tag not in tag_to_games:
-                            tag_to_games[tag] = []
-                        tag_to_games[tag].append(game['Name'])
-                    tag_counter.update(tags)
+    # Callback handler for region price calculation, calculates and compares prices
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("price_"))
+    def handle_price_region(call):
+        region_code = call.data.split('_')[1]
+        user_id = call.message.chat.id
+        wishlist = read_wishlist(user_id)
 
-            # Plotting the top 10 tags
-            fig, ax = plt.subplots(figsize=(12, 8))
-            tags, counts = zip(*tag_counter.most_common(10))
-            bars = ax.barh(tags, counts, color='skyblue')
-            ax.set_xlabel('Count')
-            ax.set_title('Top 10 Tags in Wishlist Games')
-            ax.invert_yaxis()
+        game_ids = [game['ID'] for game in wishlist]
 
-            for bar in bars:
-                width = bar.get_width()
-                ax.text(width + 0.5, bar.get_y() + bar.get_height() / 2, f'{width}', ha='center', va='center',
-                        fontsize=12)
+        game_info = []
+        for game_id in game_ids:
+            games = find_game_by_exact_id(game_id, read_database())
+            if games:
+                game = games[0]
+                game_info.append((game['ID'], game['Name'], game['Price'], game.get('ReleaseDate')))
+        total_price, currency, available_games, unavailable_games, free_games, upcoming_games = calculate_regional_prices(
+            game_info, region_code)
+        us_total_price = calculate_us_prices(game_info, unavailable_games)
+        total_price_usd = convert_to_usd(total_price, currency)
 
-            plt.tight_layout()
+        region_names = {
+            "ru": "Russia",
+            "ua": "Ukraine",
+            "tr": "Turkey",
+            "kz": "Kazakhstan",
+            "pl": "Poland",
+            "cn": "China"
+        }
+        currency_symbols = {
+            "RUB": "₽",
+            "UAH": "₴",
+            "TRY": "₺",
+            "KZT": "₸",
+            "PLN": "zł",
+            "CNY": "¥",
+            "USD": "$"
+        }
 
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png')
-            buf.seek(0)
+        region_name = region_names.get(region_code, "Unknown region")
+        currency_symbol = currency_symbols.get(currency, "$")
 
-            tag_list_text = "Top 10 Tags in Wishlist Games\n\n"
-            for tag, count in tag_counter.most_common(10):
-                games = ', '.join(tag_to_games[tag])
-                tag_list_text += f"{tag}: {games}\n\n"
+        # Plotting the price comparison
+        fig, ax = plt.subplots(figsize=(6, 12))
+        prices = [us_total_price, total_price_usd]
+        labels = ['US Region', region_name]
+        bar_width = 0.6
+        bar_positions = range(len(prices))
 
-            MAX_MESSAGE_LENGTH = 4096
-            messages = [tag_list_text[i:i + MAX_MESSAGE_LENGTH] for i in
-                        range(0, len(tag_list_text), MAX_MESSAGE_LENGTH)]
+        bars = ax.bar(bar_positions, prices, color=['blue', 'red'],
+                      width=bar_width)
+        ax.set_ylabel('Total Price in USD')
+        ax.set_title('Price Comparison of Wishlist Games')
+        ax.set_ylim(0, max(prices) * 1.2)
+        ax.set_xticks(bar_positions)
+        ax.set_xticklabels(labels)
 
-            bot.send_photo(message.chat.id, buf, caption="Top 10 Tags in Wishlist Games")
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2, yval + 1, f'{yval:.2f}', ha='center', va='bottom',
+                    fontsize=12)
 
-            for msg in messages:
-                bot.send_message(message.chat.id, msg)
+        plt.tight_layout()
 
-            plt.close(fig)
-            buf.close()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
 
-        # Handler for "Calculate Total Price" button, displays region options for price calculation
-        @bot.message_handler(func=lambda message: message.text == "Calculate Total Price")
-        def handle_total_price(message):
-            markup = types.InlineKeyboardMarkup()
-            button_ru = types.InlineKeyboardButton("🇷🇺", callback_data="price_ru")
-            button_ua = types.InlineKeyboardButton("🇺🇦", callback_data="price_ua")
-            button_tr = types.InlineKeyboardButton("🇹🇷", callback_data="price_tr")
-            button_kz = types.InlineKeyboardButton("🇰🇿", callback_data="price_kz")
-            button_pl = types.InlineKeyboardButton("🇵🇱", callback_data="price_pl")
-            button_cn = types.InlineKeyboardButton("🇨🇳", callback_data="price_cn")
-            markup.add(button_ru, button_ua, button_tr, button_kz, button_pl, button_cn)
-            bot.send_message(message.chat.id, "Select region:", reply_markup=markup)
+        unavailable_games_text = '\n'.join(unavailable_games) if unavailable_games else 'All games are available.'
+        available_games_text = '\n'.join(available_games) if available_games else 'No games are available.'
 
-        # Callback handler for region price calculation, calculates and compares prices
-        @bot.callback_query_handler(func=lambda call: call.data.startswith("price_"))
-        def handle_price_region(call):
-            region_code = call.data.split('_')[1]
-            user_id = call.message.chat.id
-            wishlist = read_wishlist(user_id)
+        bot.send_photo(call.message.chat.id, buf, caption=(
+            f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n\n"
+            f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n\n"
+            f"Available games:\n{available_games_text}\n\n"
+            f"Free games:\n{('\n'.join(free_games)) if free_games else 'No free games.'}\n\n"
+            f"Upcoming games:\n{('\n'.join(upcoming_games)) if upcoming_games else 'No upcoming games.'}\n\n"
+            f"Unavailable games:\n{unavailable_games_text}\n\n"
+        ))
 
-            game_ids = [game['ID'] for game in wishlist]
-
-            game_info = []
-            for game_id in game_ids:
-                games = find_game_by_exact_id(game_id, read_database())
-                if games:
-                    game = games[0]
-                    game_info.append((game['ID'], game['Name'], game['Price'], game.get('ReleaseDate')))
-            total_price, currency, available_games, unavailable_games, free_games, upcoming_games = calculate_regional_prices(
-                game_info, region_code)
-            us_total_price = calculate_us_prices(game_info, unavailable_games)
-            total_price_usd = convert_to_usd(total_price, currency)
-
-            region_names = {
-                "ru": "Russia",
-                "ua": "Ukraine",
-                "tr": "Turkey",
-                "kz": "Kazakhstan",
-                "pl": "Poland",
-                "cn": "China"
-            }
-            currency_symbols = {
-                "RUB": "₽",
-                "UAH": "₴",
-                "TRY": "₺",
-                "KZT": "₸",
-                "PLN": "zł",
-                "CNY": "¥",
-                "USD": "$"
-            }
-
-            region_name = region_names.get(region_code, "Unknown region")
-            currency_symbol = currency_symbols.get(currency, "$")
-
-            # Plotting the price comparison
-            fig, ax = plt.subplots(figsize=(6, 12))
-            prices = [us_total_price, total_price_usd]
-            labels = ['US Region', region_name]
-            bar_width = 0.6
-            bar_positions = range(len(prices))
-
-            bars = ax.bar(bar_positions, prices, color=['blue', 'red'],
-                          width=bar_width)
-            ax.set_ylabel('Total Price in USD')
-            ax.set_title('Price Comparison of Wishlist Games')
-            ax.set_ylim(0, max(prices) * 1.2)
-            ax.set_xticks(bar_positions)
-            ax.set_xticklabels(labels)
-
-            for bar in bars:
-                yval = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width() / 2, yval + 1, f'{yval:.2f}', ha='center', va='bottom',
-                        fontsize=12)
-
-            plt.tight_layout()
-
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png')
-            buf.seek(0)
-
-            bot.send_photo(call.message.chat.id, buf, caption=(
-                f"Total price of wishlist games available in {region_name}, but priced in the US region: ${us_total_price:.2f}\n\n"
-                f"Total price of games in {region_name}: {currency_symbol}{total_price:.2f} (~${total_price_usd:.2f})\n\n"
-                f"Available games:\n{('\n'.join(available_games)) if available_games else 'All games are available.'}\n\n"
-                f"Free games:\n{('\n'.join(free_games)) if free_games else 'No free games.'}\n\n"
-                f"Upcoming games:\n{('\n'.join(upcoming_games)) if upcoming_games else 'No upcoming games.'}\n\n"
-                f"Unavailable games:\n{('\n'.join(unavailable_games)) if unavailable_games else 'All games are available.'}\n\n"
-            ))
-
-            plt.close(fig)
-            buf.close()
-
+        plt.close(fig)
+        buf.close()
 
     # Function to convert the price to USD based on the given currency
     def convert_to_usd(amount, currency):
@@ -475,17 +475,16 @@ def setup_handlers(bot):
 
                 # Add buttons for removing from wishlist or showing available languages
                 markup_inline = types.InlineKeyboardMarkup()
-                markup_inline.add(
-                    types.InlineKeyboardButton(f"Remove {game_info['Name']} from Wishlist",
-                                               callback_data=f"remove_{game_info['Name']}"),
-                    types.InlineKeyboardButton(f"Show available languages",
-                                               callback_data=f"languages_{game_info['ID']}")
-                )
 
                 # If user is the admin, add button for updating game info
                 if call.message.chat.id == TgID:
                     markup_inline.add(types.InlineKeyboardButton(f"Update game info",
                                                                  callback_data=f"update_{game_info['ID']}"))
+
+                markup_inline.add(types.InlineKeyboardButton(f"Remove {game_info['Name']} from Wishlist",
+                                                             callback_data=f"remove_{game_info['Name']}"))
+                markup_inline.add(types.InlineKeyboardButton(f"Show available languages",
+                                                             callback_data=f"languages_{game_info['ID']}"))
 
                 bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",
                                  reply_markup=markup_inline)
@@ -549,16 +548,23 @@ def setup_handlers(bot):
 
             # Add buttons for removing or adding to wishlist and showing available languages
             markup_inline = types.InlineKeyboardMarkup()
+            # If user is the admin, add button for updating game info
+            if call.message.chat.id == TgID:
+                markup_inline.add(types.InlineKeyboardButton(f"Update game info",
+                                                             callback_data=f"update_{game['ID']}"))
             if check_wishlist(call.message.chat.id, game['Name']):
                 markup_inline.add(types.InlineKeyboardButton(f"Remove {game['Name']} from Wishlist",
-                                                             callback_data=f"remove_{game['Name']}"),
-                                  types.InlineKeyboardButton(f"Show available languages",
+                                                             callback_data=f"remove_{game['Name']}"))
+                markup_inline.add(types.InlineKeyboardButton(f"Show available languages",
                                                              callback_data=f"languages_{game['ID']}"))
                 bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",
                                  reply_markup=markup_inline)
             else:
                 markup_inline.add(
-                    types.InlineKeyboardButton(f"Add {game['Name']} to Wishlist", callback_data=f"add_{game['Name']}"),
+                    types.InlineKeyboardButton(f"Add {game['Name']} to Wishlist",
+                                               callback_data=f"add_{game['Name']}")
+                )
+                markup_inline.add(
                     types.InlineKeyboardButton(f"Show available languages",
                                                callback_data=f"languages_{game['ID']}")
                 )
@@ -752,76 +758,3 @@ def setup_handlers(bot):
             bot.answer_callback_query(call.id, f"Game information for ID {game_id} has been updated.")
         else:
             bot.answer_callback_query(call.id, "You are not authorized to update game information.")
-
-    # Callback handler to show game details when selected from the list
-    @bot.callback_query_handler(func=lambda call: call.data.startswith('list_'))
-    def show_game_details_list(call):
-        print("Processing list callback...")
-        game_id = call.data.split('_', 1)[1]
-        print("Game ID extracted:", game_id)
-        database = read_database()
-        print("Database loaded.")
-
-        game = database.get(game_id)
-        print("Game found:", game)
-
-        if game:
-            image_url = game.get('ImageURL', None)
-            total_reviews = game['PositiveReviews'] + game['NegativeReviews']
-            positive_percentage = (game['PositiveReviews'] / total_reviews) * 100 if total_reviews > 0 else 0
-            developer = ", ".join(game['Developer']) if isinstance(game['Developer'], list) else game['Developer']
-            publisher = ", ".join(game['Publisher']) if isinstance(game['Publisher'], list) else game['Publisher']
-            tags = ", ".join(game['TopTags']) if game['TopTags'] else "No tags found"
-            price = f"{game['Price']}" if game['Price'] != "Free" else 'Free'
-            day_peak = game.get('DayPeak', 'N/A')
-            platforms = game.get('Platforms', 'N/A')
-            href = f"https://store.steampowered.com/app/{game['ID']}"
-
-            # Escape special HTML characters
-            def escape_html(text):
-                return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
-            name = escape_html(game['Name'])
-            short_description = escape_html(game['ShortDesc'])
-            developer = escape_html(developer)
-            publisher = escape_html(publisher)
-            release_date = escape_html(game['ReleaseDate'])
-
-            caption = (
-                f"<b>{name}</b>\n\n"
-                f"<i>{short_description}</i>\n\n"
-                f"<b>Total reviews:</b>        {total_reviews:,} ({positive_percentage:.2f}% positive)\n"
-                f"<b>Release date:</b>           {release_date}\n"
-                f"<b>Developer:</b>               {developer}\n"
-                f"<b>Publisher:</b>                 {publisher}\n\n"
-                f"<b>Tags:</b>     {tags}\n"
-                f"<b>Price:</b>     {price}\n"
-                f"<b>Max Online Yesterday:</b>  {day_peak}\n"
-                f"<b>Platforms:</b>  {platforms}\n"
-                f"{href}"
-            )
-
-            if image_url:
-                bot.send_photo(call.message.chat.id, image_url, caption=caption, parse_mode='HTML')
-            else:
-                bot.send_message(call.message.chat.id, caption, parse_mode='HTML')
-
-            # Add buttons for removing or adding to wishlist and showing available languages
-            markup_inline = types.InlineKeyboardMarkup()
-            if check_wishlist(call.message.chat.id, game['Name']):
-                markup_inline.add(types.InlineKeyboardButton(f"Remove {game['Name']} from Wishlist",
-                                                             callback_data=f"remove_{game['Name']}"),
-                                  types.InlineKeyboardButton(f"Show available languages",
-                                                             callback_data=f"languages_{game['ID']}"))
-                bot.send_message(call.message.chat.id, "Would you like to remove this game from your Wishlist?",
-                                 reply_markup=markup_inline)
-            else:
-                markup_inline.add(
-                    types.InlineKeyboardButton(f"Add {game['Name']} to Wishlist", callback_data=f"add_{game['Name']}"),
-                    types.InlineKeyboardButton(f"Show available languages",
-                                               callback_data=f"languages_{game['ID']}")
-                )
-                bot.send_message(call.message.chat.id, "Would you like to add this game to your Wishlist?",
-                                 reply_markup=markup_inline)
-        else:
-            bot.send_message(call.message.chat.id, f"No details found for the game ID: {game_id}")
