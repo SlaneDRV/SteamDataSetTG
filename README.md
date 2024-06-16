@@ -32,9 +32,11 @@ Create your own Telegram Bot token and add it to config.py as a TOKEN.
 
 ### Dockerisation
 To dockerize your Telegram bot for deployment, navigate to the project directory in the terminal and use the following command: docker-compose up --build
+
 ```bash
 Telegram Bot token: https://youtu.be/aNmRNjME6mE?si=ViYQa2Tq7IIO1m_C
 ```
+
 ### Sources of Used Data:
 - Steam Web API: https://steamcommunity.com/dev
 - Link to json files: https://drive.google.com/drive/folders/1aG1_BkECnypXUDVRk91XYxi7HSUXs3f1?usp=sharing
