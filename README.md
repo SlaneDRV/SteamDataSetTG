@@ -39,5 +39,4 @@ docker-compose up --build
 
 ### Sources of Used Data:
 - Steam Web API: https://steamcommunity.com/dev
-- Link to json files: https://drive.google.com/drive/folders/1aG1_BkECnypXUDVRk91XYxi7HSUXs3f1?usp=sharing
 - Telegram Bot token: https://core.telegram.org/bots/tutorial#obtain-your-bot-token
