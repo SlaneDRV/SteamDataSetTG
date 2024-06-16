@@ -33,16 +33,6 @@ exchange_rates = {
     'USD': 1
 }
 
-exchange_rates = {
-    'RUB': 0.013,
-    'UAH': 0.027,
-    'TRY': 0.060,
-    'KZT': 0.0023,
-    'PLN': 0.24,
-    'CNY': 0.14,
-    'USD': 1
-}
-
 def setup_handlers(bot):
     # Handler for the /start command, displays the main menu
     @bot.message_handler(commands=['start'])
