@@ -132,22 +132,25 @@ def format_game_list(games):
                     f"\tPositive: {positive_percentage:.2f}%\n")
     return message
 
-# Directory for storing wishlists
-WISHLIST_DIR = '../Wishlists'
-if not os.path.exists(WISHLIST_DIR):
-    os.makedirs(WISHLIST_DIR)
-
 # Function to get the path of a user's wishlist
 def get_wishlist_path(user_id):
-    return os.path.join(WISHLIST_DIR, f'{user_id}_wishlist.json')
+    # Убедитесь, что путь корректен и существует
+    directory = os.path.join(os.getcwd(), "wishlists")
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    return os.path.join(directory, f"{user_id}.json")
 
 # Function to read a user's wishlist from file
 def read_wishlist(user_id):
-    filename = get_wishlist_path(user_id)
     try:
-        with open(filename, 'r', encoding='utf-8') as file:
+        file_path = get_wishlist_path(user_id)
+        with open(file_path, 'r', encoding='utf-8') as file:
             return json.load(file)
-    except FileNotFoundError:
+    except json.JSONDecodeError as e:
+        print(f"Error reading wishlist for user {user_id}: {e}")
+        return []
+    except Exception as e:
+        print(f"Unexpected error reading wishlist for user {user_id}: {e}")
         return []
 
 # Function to save a user's wishlist to file
