@@ -6,13 +6,22 @@ import yaml
 
 
 # Global variable for database storage
+TGBOT_DIR = 'TgBot'
+STEAMAPI_DIR = 'SteamAPI'
+JSON_DIR = 'JSON'
+DETAILED_GAMES_FILE = 'detailed_games_transformed.json'
+
+def get_detailed_games_path():
+    return os.path.join(TGBOT_DIR, STEAMAPI_DIR, JSON_DIR, DETAILED_GAMES_FILE)
+
+
 DATABASE = None
 
 # Preload the database function
 async def preload_database():
     global DATABASE
     try:
-        with open('JSON/detailed_games_transformed.json', 'r', encoding='utf-8') as f:
+        with open(get_detailed_games_path(), 'r', encoding='utf-8') as f:
             DATABASE = json.load(f)
             print("Database preloaded successfully.")
     except FileNotFoundError:
