@@ -39,4 +39,5 @@ docker-compose up --build
 
 ### Sources of Used Data:
 - Steam Web API: https://steamcommunity.com/dev
+- Steam Spy API: https://steamspy.com/api.php
 - Telegram Bot token: https://core.telegram.org/bots/tutorial#obtain-your-bot-token
